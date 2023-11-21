@@ -5,7 +5,7 @@ from tria_bot.models.base import JsonModelBase
 
 
 class Asset(JsonModelBase):
-    asset: str = Field(index=True, alias="asset", primary_key=True)
+    name: str = Field(index=True, alias="name", primary_key=True)
     index: int = Field(alias="index", index=True)
 
     class Meta:
