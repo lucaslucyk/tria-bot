@@ -22,19 +22,16 @@ class AsyncClient(ClientSession):
         "ETH",
         "BNB",
     )
+    BASE_PATH = "/bapi/composite/v1/public"
 
-    def __init__(self, version: str = "v1", **kwargs):
+    def __init__(self, **kwargs):
         headers = kwargs.pop("headers", {"Accept": "application/json"})
         base_url = kwargs.pop("base_url", "https://www.binance.com")
         super().__init__(base_url=base_url, headers=headers, **kwargs)
 
-    @property
-    def _base_path(self) -> str:
-        return f"/bapi/composite/v1/public"
-
     def _build_url(self, str_or_url: StrOrURL) -> URL:
         if str_or_url.startswith("/"):
-            str_or_url = self._base_path + str_or_url
+            str_or_url = self.BASE_PATH + str_or_url
         url = URL(str_or_url)
 
         if self._base_url is None:
@@ -84,24 +81,33 @@ class AsyncClient(ClientSession):
         return not self.is_stable(cn_) and not self.is_strong(cn_)
 
     async def marketing_symbol_list(self) -> Dict[str, Any]:
+        """Get json from /marketing/symbol/list
+
+        Returns:
+            Dict[str, Any]: Symbol list
+        """
         async with self.get(url="/marketing/symbol/list") as response:
             return await response.json()
 
-    def __volume_alt_symbols(self, symbol: Dict[str, Any]) -> bool:
-        return all((bool(symbol.get("volume", None)), self.is_alt(symbol)))
-
-    @staticmethod
-    def __order_volume(symbol: Dict[str, Any]) -> bool:
-        return symbol.get("volume", None)
+    def __volume_alt_filter(self, asset: Dict[str, Any]) -> bool:
+        return all((bool(asset.get("volume", None)), self.is_alt(asset)))
 
     async def get_top_volume_assets(self, quantity: int = 10) -> List[str]:
+        """Get top volume assets from Binance API
+
+        Args:
+            quantity (int, optional): Volume quantity. Defaults to 10.
+
+        Returns:
+            List[str]: Top volume assets
+        """
         response = await self.marketing_symbol_list()
-        market_symbols = response.get("data", [])
-        data = sorted(
-            filter(self.__volume_alt_symbols, market_symbols),
-            key=self.__order_volume,
+        market_assets = response.get("data", [])
+        assets = sorted(
+            filter(self.__volume_alt_filter, market_assets),
+            key=lambda x: x["volume"],
             reverse=True,
         )
-        if len(data) < quantity:
-            return data
-        return list(s.get("name") for s in data[:quantity])
+        if len(assets) < quantity:
+            return assets
+        return list(s.get("name") for s in assets[:quantity])
