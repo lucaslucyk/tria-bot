@@ -18,7 +18,7 @@ from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
 from time import time
 from tria_bot.models.composite import Symbol
-from tria_bot.utils import format_float_positional as ffp
+from tria_bot.helpers.utils import format_float_positional as ffp
 
 
 class SymbolInfoException(Exception):
