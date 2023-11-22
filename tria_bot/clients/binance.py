@@ -17,8 +17,8 @@ from binance.client import BaseClient
 from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
 from time import time
-from numpy import format_float_positional as ffp
 from tria_bot.models.composite import Symbol
+from tria_bot.utils import format_float_positional as ffp
 
 
 class SymbolInfoException(Exception):
@@ -259,10 +259,10 @@ class AsyncClient(BinanceAsyncClient):
             symbol=symbol,
             value=quantity or (ammount / price),
         )
-        to_buy = ffp(x=to_buy, trim="-")
+        to_buy = ffp(x=to_buy)
 
         exchange_price = self.apply_tick_size(symbol=symbol, value=price)
-        exchange_price = ffp(x=exchange_price, trim="-")
+        exchange_price = ffp(x=exchange_price)
         return await self.order_limit_buy(
             symbol=symbol,
             quantity=to_buy,
@@ -278,9 +278,9 @@ class AsyncClient(BinanceAsyncClient):
     ) -> Dict[str, Any]:
         symbol = f"{target_asset}{source_asset}"
         to_sell = self.apply_step_size(symbol=symbol, value=quantity)
-        to_sell = ffp(x=to_sell, trim="-")
+        to_sell = ffp(x=to_sell)
         exchange_price = self.apply_tick_size(symbol=symbol, value=price)
-        exchange_price = ffp(x=exchange_price, trim="-")
+        exchange_price = ffp(x=exchange_price)
 
         return await self.order_limit_sell(
             symbol=symbol,
