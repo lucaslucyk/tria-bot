@@ -1,15 +1,16 @@
 from abc import ABC, abstractproperty
 import asyncio
 import os
+from inspect import isawaitable
 from typing import (
     Any,
     Generator,
     Generic,
-    Iterable,
     Optional,
     Type,
     TypeVar,
 )
+from uuid import uuid1
 from binance import AsyncClient, BinanceSocketManager
 from binance.streams import ReconnectingWebsocket
 from pydantic import BaseModel
@@ -28,7 +29,6 @@ class SocketError(Exception):
 
 ModelType = TypeVar("ModelType", bound=RedisModel)
 
-
 class SocketBaseSvc(Generic[ModelType], ABC):
     @abstractproperty
     def model(self) -> Type[ModelType]:
@@ -39,7 +39,8 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         ...
 
     def __init__(self, *args, **kwargs) -> None:
-        self.logger = create_logger(type(self).__name__)
+        self._uid = uuid1()
+        self.logger = create_logger(f"{type(self).__name__}[{self._uid}]")
         self._redis_url = kwargs.get(
             "redis_om_url",
             os.environ.get("REDIS_OM_URL"),
@@ -98,27 +99,34 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         else:
             raise ValueError("Not supported data")
 
-    async def _save_data(
-        self, data: Iterable[ModelType]
-    ) -> None:
-        """Save data into database
+    async def callback(self, stream: Any) -> Any:
+        """Save received stream from API and store in database
 
         Args:
-            data (Iterable[ModelType]: Iterable model
+            stream (Any): API received data
+
+        Returns:
+            Any: Store result
         """
-        for obj in data:
-            await obj.save()
+        model_sequence = self._model_or_raise(data=stream)
+        return await self.model.add(models=list(model_sequence))
 
     async def subscribe(self, **params) -> None:
-        """Subscribe to a model socket and save results on Redis database"""
+        """Subscribe to a model socket and pass result to `self.callback`"""
         self._socket: ReconnectingWebsocket = self._socket_handler(**params)
         async with self._socket as ws:
-            self.logger.info(f"Connected to {self.socket_handler_name} socket.")
+            msg = "Connected to `{sn}`{opt}.".format(
+                sn=self.socket_handler_name,
+                opt=f" with {params}" if params else "",
+            )
+            self.logger.info(msg)
             while True:
                 try:
                     stream = await ws.recv()
-                    data = self._model_or_raise(data=stream)
-                    await self._save_data(data=data)
+                    result = self.callback(stream=stream)
+                    if isawaitable(result):
+                        await result
+
                     await asyncio.sleep(0.001)
 
                 except SocketError as err:

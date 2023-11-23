@@ -29,6 +29,9 @@ class AsyncClient(ClientSession):
         base_url = kwargs.pop("base_url", "https://www.binance.com")
         super().__init__(base_url=base_url, headers=headers, **kwargs)
 
+    async def __aenter__(self) -> "AsyncClient":
+        return await super().__aenter__()
+
     def _build_url(self, str_or_url: StrOrURL) -> URL:
         if str_or_url.startswith("/"):
             str_or_url = self.BASE_PATH + str_or_url

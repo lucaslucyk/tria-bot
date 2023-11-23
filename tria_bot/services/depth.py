@@ -1,6 +1,6 @@
+import asyncio
 from time import time_ns
-from typing import Any, Generator
-import anyio
+from typing import Any, Generator, Iterable
 from tria_bot.models.depth import Depth
 from tria_bot.services.base import SocketBaseSvc
 
@@ -12,6 +12,7 @@ class DepthSvc(SocketBaseSvc[Depth]):
     def __init__(self, *args, symbol: str, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.symbol = symbol
+
 
     async def __aenter__(self) -> "DepthSvc":
         return await super().__aenter__()
@@ -26,18 +27,28 @@ class DepthSvc(SocketBaseSvc[Depth]):
         )
 
     async def subscribe(self) -> None:
+        # self._socket_manager.depth_socket()
         return await super().subscribe(
             symbol=self.symbol,
             depth=self._socket_manager.WEBSOCKET_DEPTH_5,
             interval=100,
         )
 
-
-async def main():
-    async with DepthSvc(symbol="BTCUSDT") as ts:
-        # ts._socket_manager.depth_socket()
-        await ts.subscribe()
+    @classmethod
+    async def _subscribe(cls, symbol: str) -> Any:
+        async with cls(symbol=symbol) as ts:
+            await ts.subscribe()
+    
+    @classmethod
+    async def multi_subscribe(cls, symbols: Iterable[str]) -> Any:
+        tasks = [cls._subscribe(s) for s in symbols]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    SYMBOLS = (
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+    )
+    asyncio.run(DepthSvc.multi_subscribe(symbols=SYMBOLS))
