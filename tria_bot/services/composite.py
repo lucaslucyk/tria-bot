@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from aredis_om import get_redis_connection, Migrator, RedisModel, NotFoundError
 from tria_bot.conf import settings
 from tria_bot.helpers.utils import create_logger
-from tria_bot.models.composite import TopAltAssets, Symbol
+from tria_bot.models.composite import TopVolumeAssets, Symbol
 from tria_bot.clients.composite import AsyncClient
 
 
@@ -35,7 +35,7 @@ ModelType = TypeVar("ModelType", bound=RedisModel)
 
 class CompositeSvc(Generic[ModelType], ABC):
     loop_interval: float = settings.COMPOSITE_LOOP_INTERVAL
-    model: Type[ModelType] = TopAltAssets
+    model: Type[ModelType] = TopVolumeAssets
 
     def __init__(self, *args, **kwargs) -> None:
         self._uid = uuid1()
@@ -65,7 +65,7 @@ class CompositeSvc(Generic[ModelType], ABC):
     def _model_or_raise(self, data: Sequence[str]):
         return self.model(assets=data, pk=self.model.Meta.PK_VALUE)
 
-    async def _db_or_empty(self) -> TopAltAssets:
+    async def _db_or_empty(self) -> TopVolumeAssets:
         try:
             return await self.model.get(self.model.Meta.PK_VALUE)
         except NotFoundError:

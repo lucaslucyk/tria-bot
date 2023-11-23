@@ -4,21 +4,21 @@ from aredis_om import Field
 from tria_bot.models.base import JsonModelBase
 
 
-class TopAltAsset(JsonModelBase):
+class TopVolumeAsset(JsonModelBase):
     index: int = Field(alias="index", index=True, primary_key=True)
     name: str = Field(index=True, alias="name")
 
     class Meta:
-        model_key_prefix = "TopAltAsset"
+        model_key_prefix = "TopVolumeAsset"
         global_key_prefix = "tria_bot"
 
 
-class TopAltAssets(JsonModelBase):
+class TopVolumeAssets(JsonModelBase):
     assets: List[str] = Field(alias="assets")
 
     class Meta:
-        PK_VALUE = "TOP_ALT_ASSETS"
-        model_key_prefix = "TopAltAssets"
+        PK_VALUE = "TOP_VOLUME_ASSETS"
+        model_key_prefix = "TopVolumeAssets"
         global_key_prefix = "tria_bot"
 
 
