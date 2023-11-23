@@ -1,24 +1,19 @@
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractproperty
 import asyncio
-import inspect
 import os
 from typing import (
     Any,
-    Callable,
     Generator,
     Generic,
     Iterable,
     Optional,
     Type,
     TypeVar,
-    Union,
 )
 from binance import AsyncClient, BinanceSocketManager
 from binance.streams import ReconnectingWebsocket
 from pydantic import BaseModel
 from aredis_om import get_redis_connection, Migrator, RedisModel
-from regex import R
-
 from tria_bot.helpers.utils import create_logger
 
 
