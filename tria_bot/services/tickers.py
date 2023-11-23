@@ -1,9 +1,9 @@
 import anyio
 from tria_bot.models.ticker import Ticker
-from tria_bot.services.base import BaseSvc
+from tria_bot.services.base import SocketBaseSvc
 
 
-class TickerSvc(BaseSvc[Ticker]):
+class TickerSvc(SocketBaseSvc[Ticker]):
     model = Ticker
     socket_handler_name = "ticker_socket"
 

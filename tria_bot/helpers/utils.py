@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Type, TypeVar
 from pydantic import TypeAdapter, BaseModel
 from decimal import Context
@@ -28,3 +29,25 @@ def format_float_positional(x: float, precision: int = 8):
     ctx.prec = precision
     d1 = ctx.create_decimal(repr(x))
     return format(d1, "f")
+
+
+def create_logger(name: str, level: int = logging.INFO, fmt=None):
+    # create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # create file or console handler and set level
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+
+    # create formatter
+    fmt = fmt or "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt)
+
+    # add formatter to ch
+    handler.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(handler)
+
+    return logger
