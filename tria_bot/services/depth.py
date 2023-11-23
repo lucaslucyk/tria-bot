@@ -1,8 +1,8 @@
-from time import time
+from time import time_ns
 from typing import Any, Generator
 import anyio
 from tria_bot.models.depth import Depth
-from tria_bot.services.base import SocketBaseSvc, SocketError, SocketErrorDetail
+from tria_bot.services.base import SocketBaseSvc
 
 
 class DepthSvc(SocketBaseSvc[Depth]):
@@ -17,14 +17,13 @@ class DepthSvc(SocketBaseSvc[Depth]):
         return await super().__aenter__()
 
     def _model_or_raise(self, data: Any) -> Generator[Depth, Any, None]:
-        try:
-            yield self.model(
+        return super()._model_or_raise(
+            data={
                 **data,
-                symbol=self.symbol,
-                event_time=int(time()),
-            )
-        except:
-            raise SocketError(SocketErrorDetail(**data))
+                "symbol": self.symbol,
+                "event_time": int(time_ns() / 1000000),
+            }
+        )
 
     async def subscribe(self) -> None:
         return await super().subscribe(
