@@ -43,12 +43,3 @@ class DepthSvc(SocketBaseSvc[Depth]):
     async def multi_subscribe(cls, symbols: Iterable[str]) -> Any:
         tasks = [cls.subscribe(s) for s in symbols]
         await asyncio.gather(*tasks, return_exceptions=True)
-
-
-if __name__ == "__main__":
-    SYMBOLS = (
-        "BTCUSDT",
-        "ETHUSDT",
-        "BNBUSDT",
-    )
-    asyncio.run(DepthSvc.multi_subscribe(symbols=SYMBOLS))
