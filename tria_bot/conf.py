@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     COMPOSITE_LOOP_INTERVAL: float = 60.0
 
     class Config:
+        extra = "ignore"
         env_file = '.env'
 
 

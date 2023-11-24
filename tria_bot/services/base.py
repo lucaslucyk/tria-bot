@@ -49,12 +49,13 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         self._binance_client = None
         self._socket_manager = None
         self._socket: Optional[ReconnectingWebsocket] = None
+        self._is_running: bool = True
 
     async def __aenter__(self) -> "SocketBaseSvc":
         await Migrator().run()
-        self.redis_conn = get_redis_connection(url=self._redis_url)
-        self.model.Meta.database = self.redis_conn
-        self.model._meta.database = self.redis_conn
+        self._redis_conn = get_redis_connection(url=self._redis_url)
+        self.model.Meta.database = self._redis_conn
+        self.model._meta.database = self._redis_conn
         self._binance_client = await AsyncClient.create()
         self._socket_manager = BinanceSocketManager(self._binance_client)
         self._socket_handler = getattr(
@@ -68,7 +69,7 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         exc_val: Optional[Any] = None,
         exc_tb: Optional[Any] = None,
     ) -> None:
-        await self.redis_conn.close()
+        await self._redis_conn.close()
         await self._binance_client.close_connection()
 
     def _model_or_raise(
@@ -120,7 +121,7 @@ class SocketBaseSvc(Generic[ModelType], ABC):
                 opt=f" with {params}" if params else "",
             )
             self.logger.info(msg)
-            while True:
+            while self._is_running:
                 try:
                     stream = await ws.recv()
                     result = self.callback(stream=stream)

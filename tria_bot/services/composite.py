@@ -36,6 +36,7 @@ ModelType = TypeVar("ModelType", bound=RedisModel)
 class CompositeSvc(Generic[ModelType], ABC):
     loop_interval: float = settings.COMPOSITE_LOOP_INTERVAL
     model: Type[ModelType] = TopVolumeAssets
+    TOP_VOLUME_CHANGE_EVENT = "top-volume-change"
 
     def __init__(self, *args, **kwargs) -> None:
         self._uid = uuid1()
@@ -46,6 +47,7 @@ class CompositeSvc(Generic[ModelType], ABC):
         )
         self._redis_conn = None
         self._composite_client = None
+        self._is_running: bool = True
 
     async def __aenter__(self) -> "CompositeSvc":
         await Migrator().run()
@@ -71,7 +73,14 @@ class CompositeSvc(Generic[ModelType], ABC):
         except NotFoundError:
             return self.model(assets=[""], pk=self.model.Meta.PK_VALUE)
 
-    async def on_change_handler(self, data: Sequence[str]):
+    async def on_change_handler(self, old: Sequence[str], new: Sequence[str]):
+        msg = f"Top volume assets change from {old} to {new}"
+        self.logger.info(msg)
+        data = {
+            "event": self.TOP_VOLUME_CHANGE_EVENT,
+            "old": old,
+            "new": new
+        }
         await self._redis_conn.publish(
             settings.PUBSUB_TOP_VOLUME_CHANNEL,
             orjson.dumps(data),
@@ -80,19 +89,16 @@ class CompositeSvc(Generic[ModelType], ABC):
     async def handler(self, data: Sequence[str]):
         model_data = await self._db_or_empty()
         if set(model_data.assets) != set(data):
-            msg = "Top volume assets change from {fr} to {to}".format(
-                fr=model_data.assets,
-                to=data,
-            )
-            self.logger.info(msg)
+            await self.on_change_handler(old=model_data.assets, new=data)
+
+            # save data
             model_data.assets = data
             await model_data.save()
-            await self.on_change_handler(data=data)
 
     async def refresh(self, interval: Optional[float] = None):
         async with AsyncClient() as composite:
-            self.logger.info("Connected to refresh top volume assets.")
-            while True:
+            self.logger.info("Connected to Binance API to get Top Assets.")
+            while self._is_running:
                 data = await composite.get_top_volume_assets()
                 await self.handler(data=data)
                 await asyncio.sleep(interval or self.loop_interval)
