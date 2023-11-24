@@ -2,7 +2,7 @@ import asyncio
 import anyio
 from aredis_om.connections import redis
 from threading import Thread
-from typing import Any, Generator, Sequence
+from typing import Any, Generator, Optional, Sequence
 
 import orjson
 from tria_bot.helpers.symbols import all_combos
@@ -41,6 +41,7 @@ class Listener(Thread):
 
     def run(self):
         asyncio.run(self.main())
+
     # def run(self) -> None:
     #     task = asyncio.create_task(self.main())
     #     try:
@@ -65,7 +66,6 @@ class TickerSvc(SocketBaseSvc[Ticker]):
     #     self.symbols = symbols
     #     self._listener = None
 
-
     async def _get_symbols(self):
         tva = await self.top_volume_model.get(
             self.top_volume_model.Meta.PK_VALUE
@@ -77,14 +77,41 @@ class TickerSvc(SocketBaseSvc[Ticker]):
             )
         )
 
+    async def _top_volume_subscribe(self):
+        async with self._redis_conn.pubsub(
+            ignore_subscribe_messages=True
+        ) as ps:
+            channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
+            await ps.subscribe(channel)
+            self.logger.info(f"Subscribed to {channel}")
+            async for msg in ps.listen():
+                if msg != None:
+                    data = orjson.loads(msg["data"])
+                    self.logger.info(data)
+                    self.logger.info("Stopping svc...")
+                    self._is_running = False
+                    await ps.unsubscribe()
+                    break
+
+    def top_volume_subscribe(self):
+        asyncio.run(self._top_volume_subscribe())
+
     async def __aenter__(self) -> "TickerSvc":
         await super().__aenter__()
         self.top_volume_model.Meta.database = self._redis_conn
         self.top_volume_model._meta.database = self._redis_conn
         self._symbols = await self._get_symbols()
-        self._listener = Listener(redis_conn=self._redis_conn, svc=self)
+        self._listener = Thread(
+            target=self.top_volume_subscribe,
+            name="top_volume_listener",
+        )
         self._listener.start()
         return self
+
+    async def __aexit__(self, *args, **kwargs) -> None:
+        if self._listener != None:
+            self._listener.join()
+        return await super().__aexit__(*args, **kwargs)
 
     def _model_or_raise(self, data: Any) -> Generator[Ticker, Any, None]:
         if isinstance(data, list):
