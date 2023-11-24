@@ -1,0 +1,54 @@
+version: '3.7'
+
+
+services:
+  tria-redis:
+    image: redis/redis-stack
+    container_name: tria-redis
+    ports:
+      - 6379:6379
+      - 8001:8001
+    env_file:
+      - .env
+    restart: "on-failure"
+    networks:
+      - triabot
+
+  tria-composite:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-composite
+    command: ["poetry", "run", "python", "tria_bot/composite.py"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+  tria-tickers:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-tickers
+    command: ["poetry", "run", "python", "tria_bot/tickers.py"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+
+networks:
+  triabot:

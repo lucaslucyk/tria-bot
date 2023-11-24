@@ -26,22 +26,22 @@ class DepthSvc(SocketBaseSvc[Depth]):
             }
         )
 
-    async def subscribe(self) -> None:
+    async def ws_subscribe(self) -> None:
         # self._socket_manager.depth_socket()
-        return await super().subscribe(
+        return await super().ws_subscribe(
             symbol=self.symbol,
             depth=self._socket_manager.WEBSOCKET_DEPTH_5,
             interval=100,
         )
 
     @classmethod
-    async def _subscribe(cls, symbol: str) -> Any:
+    async def subscribe(cls, symbol: str) -> Any:
         async with cls(symbol=symbol) as ts:
-            await ts.subscribe()
+            await ts.ws_subscribe()
     
     @classmethod
     async def multi_subscribe(cls, symbols: Iterable[str]) -> Any:
-        tasks = [cls._subscribe(s) for s in symbols]
+        tasks = [cls.subscribe(s) for s in symbols]
         await asyncio.gather(*tasks, return_exceptions=True)
 
 

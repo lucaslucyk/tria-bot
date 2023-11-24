@@ -69,6 +69,7 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         exc_val: Optional[Any] = None,
         exc_tb: Optional[Any] = None,
     ) -> None:
+        self.logger.info("Stopping service...")
         await self._redis_conn.close()
         await self._binance_client.close_connection()
 
@@ -112,7 +113,7 @@ class SocketBaseSvc(Generic[ModelType], ABC):
         model_sequence = self._model_or_raise(data=stream)
         return await self.model.add(models=list(model_sequence))
 
-    async def subscribe(self, **params) -> None:
+    async def ws_subscribe(self, **params) -> None:
         """Subscribe to a model socket and pass result to `self.callback`"""
         self._socket: ReconnectingWebsocket = self._socket_handler(**params)
         async with self._socket as ws:
