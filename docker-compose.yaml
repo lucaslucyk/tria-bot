@@ -49,6 +49,96 @@ services:
     networks:
       - triabot
 
+  tria-depth-strong-stable:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-strong-stable
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=strong_stable"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+  tria-depth-alt-stable:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-alt-stable
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_stable"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+  tria-depth-alt-btc:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-alt-btc
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=BTC"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+  tria-depth-alt-bnb:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-alt-bnb
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=BNB"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
+  tria-depth-alt-eth:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-alt-eth
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=ETH"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
 
 networks:
   triabot:
