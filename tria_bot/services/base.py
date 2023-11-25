@@ -29,6 +29,32 @@ class SocketError(Exception):
 
 ModelType = TypeVar("ModelType", bound=RedisModel)
 
+
+class BaseSvc():
+
+    def __init__(self, *args, **kwargs) -> None:
+        self._uid = uuid1()
+        self.logger = create_logger(f"{type(self).__name__}[{self._uid}]")
+        self._redis_url = kwargs.get(
+            "redis_om_url",
+            os.environ.get("REDIS_OM_URL"),
+        )
+        self._redis_conn = None
+
+    async def __aenter__(self) -> "BaseSvc":
+        self._redis_conn = get_redis_connection(url=self._redis_url)
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Any] = None,
+        exc_val: Optional[Any] = None,
+        exc_tb: Optional[Any] = None,
+    ) -> None:
+        if self._redis_conn != None:
+            await self._redis_conn.close()
+
+
 class SocketBaseSvc(Generic[ModelType], ABC):
     @abstractproperty
     def model(self) -> Type[ModelType]:

@@ -1,20 +1,15 @@
-from abc import ABC, abstractproperty
 import asyncio
 import os
 from inspect import isawaitable
 from typing import (
     Any,
-    Generator,
-    Generic,
     Optional,
-    Sequence,
-    Type,
-    TypeVar,
+    Sequence
 )
 from uuid import uuid1
 import orjson
 from pydantic import BaseModel
-from aredis_om import get_redis_connection, Migrator, RedisModel, NotFoundError
+from aredis_om import get_redis_connection, Migrator, NotFoundError
 from tria_bot.conf import settings
 from tria_bot.helpers.utils import create_logger
 from tria_bot.models.composite import TopVolumeAssets, Symbol
@@ -30,12 +25,9 @@ class SocketError(Exception):
     ...
 
 
-ModelType = TypeVar("ModelType", bound=RedisModel)
-
-
-class CompositeSvc(Generic[ModelType], ABC):
+class CompositeSvc:
     loop_interval: float = settings.COMPOSITE_LOOP_INTERVAL
-    model: Type[ModelType] = TopVolumeAssets
+    model = TopVolumeAssets
     TOP_VOLUME_CHANGE_EVENT = "top-volume-change"
 
     def __init__(self, *args, **kwargs) -> None:

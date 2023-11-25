@@ -2,6 +2,7 @@ import asyncio
 from typing import Any, Generator
 
 import orjson
+from tria_bot.crud.top_volume_assets import TopVolumeAssetsCRUD
 from tria_bot.helpers.symbols import all_combos
 from tria_bot.models.composite import TopVolumeAssets
 from tria_bot.models.ticker import Ticker
@@ -11,7 +12,7 @@ from tria_bot.conf import settings
 
 class TickerSvc(SocketBaseSvc[Ticker]):
     model = Ticker
-    top_volume_model = TopVolumeAssets
+    tva_model = TopVolumeAssets
     socket_handler_name = "ticker_socket"
     top_volume_channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
     # socket_handler_name = "symbol_ticker_socket"
@@ -19,12 +20,11 @@ class TickerSvc(SocketBaseSvc[Ticker]):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._symbols = None
+        self._tva_crud = None
         self._tva = None
 
     async def _get_top_volume_assets(self):
-        return await self.top_volume_model.get(
-            self.top_volume_model.Meta.PK_VALUE
-        )
+        return await self._tva_crud.wait_for(self.tva_model.Meta.PK_VALUE)
 
     async def _get_symbols(self):
         return list(
@@ -36,8 +36,7 @@ class TickerSvc(SocketBaseSvc[Ticker]):
 
     async def __aenter__(self) -> "TickerSvc":
         await super().__aenter__()
-        self.top_volume_model.Meta.database = self._redis_conn
-        self.top_volume_model._meta.database = self._redis_conn
+        self._tva_crud = TopVolumeAssetsCRUD(conn=self._redis_conn)
         self._tva = await self._get_top_volume_assets()
         self._symbols = await self._get_symbols()
         return self
