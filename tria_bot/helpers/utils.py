@@ -1,5 +1,6 @@
+import inspect
 import logging
-from typing import Any, Type, TypeVar
+from typing import Any, Awaitable, Callable, Iterable, Type, TypeVar
 from pydantic import TypeAdapter, BaseModel
 from decimal import Context
 
@@ -51,3 +52,12 @@ def create_logger(name: str, level: int = logging.INFO, fmt=None):
     logger.addHandler(handler)
 
     return logger
+
+
+async def async_filter(function: Callable, iterable: Iterable[Any]):
+    async for item in iterable:
+        should_yield = function(item)
+        if inspect.isawaitable(should_yield):
+            should_yield = await should_yield
+        if should_yield:
+            yield item

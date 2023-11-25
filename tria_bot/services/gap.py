@@ -1,6 +1,7 @@
 from tria_bot.conf import settings
 from tria_bot.crud.gaps import GapsCRUD
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
+from tria_bot.helpers.utils import async_filter
 from tria_bot.models.composite import TopVolumeAssets
 from tria_bot.models.gap import Gap
 from tria_bot.models.ticker import Ticker
@@ -59,7 +60,7 @@ class GapCalculatorSvc(BaseSvc):
                         alt=alt,
                         strong=stg,
                         stable=self.stable,
-                        value=round(strong_pcp - stable_pcp, 2)
+                        value=round(strong_pcp - stable_pcp, 2),
                     )
             except NotFoundError:
                 pass
@@ -69,5 +70,12 @@ class GapCalculatorSvc(BaseSvc):
             # async for gap in self.calc_gaps():
             #     if gap.value > 1.0:
             #         self.logger.info(gap)
-            gaps = [gap async for gap in self.calc_gaps()]
-            await self._gaps_crud.add(models=gaps)
+
+            def is_valid(gap: Gap) -> bool:
+                return gap.value >= settings.GAP_MIN
+
+            # gaps = [gap async for gap in self.calc_gaps()]
+            gaps = [_ async for _ in async_filter(is_valid, self.calc_gaps())]
+            if gaps:
+                self.logger.info(f"Potential gaps: {gaps}")
+                await self._gaps_crud.add(models=gaps)

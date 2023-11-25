@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     # services
     COMPOSITE_LOOP_INTERVAL: float = 60.0
+    GAP_MIN: float = 1.5
 
     class Config:
         extra = "ignore"
