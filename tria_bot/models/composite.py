@@ -22,20 +22,31 @@ class TopVolumeAssets(JsonModelBase):
         global_key_prefix = "tria_bot"
 
 
+class ValidSymbols(JsonModelBase):
+    symbols: List[str] = Field(alias="symbols")
+
+    class Meta:
+        PK_VALUE = "VALID_SYMBOLS"
+        model_key_prefix = "ValidSymbols"
+        global_key_prefix = "tria_bot"
+
+
 class Symbol(JsonModelBase):
     symbol: str = Field(index=True, alias="symbol", primary_key=True)
     base_asset: str = Field(index=True, alias="baseAsset")
-    quoteAsset: str = Field(index=True, alias="quoteAsset")
+    quote_asset: str = Field(index=True, alias="quoteAsset")
     is_spot_trading_allowed: bool = Field(
         index=True, alias="isSpotTradingAllowed"
     )
-    max_qty: float = Field(alias="maxQty")
+    min_price: float = Field(alias="minPrice")
+    max_price: float = Field(alias="maxPrice")
+    tick_size: float = Field(alias="tickSize")
     min_qty: float = Field(alias="minQty")
+    max_qty: float = Field(alias="maxQty")
+    step_size: float = Field(alias="stepSize")
     order_types: List[str] = Field(alias="orderTypes")
     permissions: List[str] = Field(alias="permissions")
     status: str = Field(index=True, alias="status")
-    step_size: float = Field(alias="stepSize")
-    tick_size: float = Field(alias="tickSize")
 
     class Meta:
         model_key_prefix = "Symbol"

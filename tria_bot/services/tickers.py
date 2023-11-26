@@ -1,8 +1,6 @@
 import asyncio
 from typing import Any, Generator
-
-import orjson
-from tria_bot.crud.top_volume_assets import TopVolumeAssetsCRUD
+from tria_bot.crud.composite import TopVolumeAssetsCRUD
 from tria_bot.helpers.symbols import all_combos
 from tria_bot.models.composite import TopVolumeAssets
 from tria_bot.models.ticker import Ticker
@@ -68,12 +66,9 @@ class TickerSvc(SocketBaseSvc[Ticker]):
         else:
             raise ValueError("Not supported data")
 
-    # async def subscribe(self) -> Any:
-    #     # self._socket_manager.depth_socket()
-    #     return await super().subscribe(symbol=self.symbol)
 
     @classmethod
-    async def subscribe(cls) -> Any:
+    async def start(cls) -> None:
         while True:
             async with cls() as ts:
                 data = {
@@ -84,7 +79,3 @@ class TickerSvc(SocketBaseSvc[Ticker]):
                 await asyncio.gather(ts.ws_subscribe(), ts.ps_subscribe())
                 # await ts.subscribe()
 
-    # @classmethod
-    # async def multi_subscribe(cls, symbols: Iterable[str]) -> Any:
-    #     tasks = [cls._subscribe(s) for s in symbols]
-    #     await asyncio.gather(*tasks, return_exceptions=True)

@@ -3,7 +3,7 @@ from tria_bot.services.tickers import TickerSvc
 
 
 async def main():
-    await TickerSvc.subscribe()
+    await TickerSvc.start()
 
 
 if __name__ == "__main__":

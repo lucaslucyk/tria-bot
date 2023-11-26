@@ -5,6 +5,7 @@ from typing import (
     Any,
     AsyncGenerator,
     Dict,
+    Generator,
     Iterable,
     List,
     Literal,
@@ -111,8 +112,14 @@ class AsyncClient(BinanceAsyncClient):
             method, path, signed, version, **kwargs
         )
 
+    async def get_valid_symbols(self)-> Generator[str, Any, None]:
+        exchange_info = await self.get_exchange_info()
+        for symbol in exchange_info.get("symbols", []):
+            yield symbol.get('symbol', '')
+
     async def get_symbols_info(
-        self, symbols: Iterable[str]
+        self,
+        symbols: Iterable[str],
     ) -> List[Dict[str, Any]]:
         symbols = str(list(symbols)).replace("'", '"').replace(" ", "")
         response = await self._get(
@@ -130,7 +137,8 @@ class AsyncClient(BinanceAsyncClient):
         self,
         assets: Iterable[str],
         **params,
-    ) -> filter[Dict[str, Any]]:
+        # ) -> filter[Dict[str, Any]]:
+    ):
         def filter_assets(e: Dict[str, Any]) -> bool:
             return e.get("asset", "").upper() in assets
 

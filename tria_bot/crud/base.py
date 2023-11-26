@@ -1,8 +1,18 @@
 import asyncio
 from redis.asyncio.client import Redis
 from abc import ABC, abstractproperty
-from typing import Any, Generic, Iterable, Optional, Sequence, Type, TypeVar
-#from tria_bot.models.base import HashModelBase
+from typing import (
+    Any,
+    AsyncGenerator,
+    Generic,
+    Iterable,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+)
+
+# from tria_bot.models.base import HashModelBase
 from aredis_om import RedisModel, get_redis_connection, NotFoundError
 from aredis_om.connections import redis
 from pydantic import BaseModel
@@ -33,23 +43,35 @@ class CRUDBase(Generic[ModelType], ABC):
     def model(self) -> Type[ModelType]:
         ...
 
-    
-    def __init__(self, conn: Optional[redis.Redis]) -> None:
+    def __init__(self, conn: Optional[redis.Redis] = None) -> None:
         super().__init__()
         self._conn = conn
         if self._conn == None:
             self._conn = get_redis_connection()
-        
+
         self.model.Meta.database = self._conn
         self.model._meta.database = self._conn
 
+    async def __aenter__(self) -> "CRUDBase":
+        if self._conn == None:
+            self._conn = get_redis_connection()
+        return self
 
-    # @Decorators.use_connection("conn")
-    async def get(
+    
+    async def __aexit__(
         self,
-        pk: Any,
-        # conn: Optional[Redis] = None,
-    ) -> Optional[ModelType]:
+        exc_type: Optional[Any] = None,
+        exc_val: Optional[Any] = None,
+        exc_tb: Optional[Any] = None,
+    ) -> None:
+        if self._conn != None:
+            await self._conn.close()
+
+
+    async def save(self, obj: ModelType):
+        return await obj.save()
+
+    async def get(self, pk: Any) -> Optional[ModelType]:
         """Get row from model by uid
 
         Args:
@@ -59,28 +81,22 @@ class CRUDBase(Generic[ModelType], ABC):
         Returns:
             Optional[ModelType]: ModelType instance or None if id not exists
         """
-        # if conn != None:
-        #     self.model._meta.database = conn
         return await self.model.get(pk=pk)
-
 
     async def wait_for(self, pk: Any) -> ModelType:
         try:
             return await self.get(pk=pk)
         except NotFoundError:
             await asyncio.sleep(1.0)
-            return self.wait_for(pk=pk)
+            return await self.wait_for(pk=pk)
 
-    # @Decorators.use_connection("conn")
-    async def get_all(
-        self,
-        # conn: Optional[Redis] = None,
-    ):
+    async def all_pks(self) -> AsyncGenerator[Any, None]:
+        async for pk in self.model.all_pks():
+            yield pk
+
+    async def get_all(self) -> AsyncGenerator[ModelType, None]:
         async for pk in self.model.all_pks():
             yield await self.get(pk=pk)
 
-    async def add(
-        self,
-        models: Sequence[ModelType]
-    ):
+    async def add(self, models: Sequence[ModelType]) -> Sequence[ModelType]:
         return await self.model.add(models=models)

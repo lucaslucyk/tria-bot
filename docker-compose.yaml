@@ -4,7 +4,7 @@ version: '3.7'
 services:
   tria-redis:
     image: redis/redis-stack
-    # image: redis/redis-server
+    # image: redis/redis-stack-server
     container_name: tria-redis
     # command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]  # disable persistence
     ports:
@@ -72,96 +72,59 @@ services:
     networks:
       - triabot
 
-  # tria-depth-strong-stable:
-  #   image: tria-bot
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: tria-depth-strong-stable
-  #   command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=strong_stable"]
-  #   env_file:
-  #     - .env
-  #   restart: "on-failure"
-  #   depends_on:
-  #     - tria-redis
-  #     - tria-composite
-  #   volumes:
-  #     - ./tria_bot:/app/tria_bot
-  #   networks:
-  #     - triabot
+  tria-depth-1:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-1
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--splitter=1/3"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
 
-  # tria-depth-alt-stable:
-  #   image: tria-bot
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: tria-depth-alt-stable
-  #   command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_stable"]
-  #   env_file:
-  #     - .env
-  #   restart: "on-failure"
-  #   depends_on:
-  #     - tria-redis
-  #     - tria-composite
-  #   volumes:
-  #     - ./tria_bot:/app/tria_bot
-  #   networks:
-  #     - triabot
+  tria-depth-2:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-2
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--splitter=2/3"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
 
-  # tria-depth-alt-btc:
-  #   image: tria-bot
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: tria-depth-alt-btc
-  #   command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=BTC"]
-  #   env_file:
-  #     - .env
-  #   restart: "on-failure"
-  #   depends_on:
-  #     - tria-redis
-  #     - tria-composite
-  #   volumes:
-  #     - ./tria_bot:/app/tria_bot
-  #   networks:
-  #     - triabot
-
-  # tria-depth-alt-bnb:
-  #   image: tria-bot
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: tria-depth-alt-bnb
-  #   command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=BNB"]
-  #   env_file:
-  #     - .env
-  #   restart: "on-failure"
-  #   depends_on:
-  #     - tria-redis
-  #     - tria-composite
-  #   volumes:
-  #     - ./tria_bot:/app/tria_bot
-  #   networks:
-  #     - triabot
-
-  # tria-depth-alt-eth:
-  #   image: tria-bot
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: tria-depth-alt-eth
-  #   command: ["poetry", "run", "python", "tria_bot/depth.py", "--kind=alt_strong", "--strong=ETH"]
-  #   env_file:
-  #     - .env
-  #   restart: "on-failure"
-  #   depends_on:
-  #     - tria-redis
-  #     - tria-composite
-  #   volumes:
-  #     - ./tria_bot:/app/tria_bot
-  #   networks:
-  #     - triabot
-
+  tria-depth-3:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-depth-3
+    command: ["poetry", "run", "python", "tria_bot/depth.py", "--splitter=3/3"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
 
 networks:
   triabot:

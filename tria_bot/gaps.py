@@ -3,8 +3,7 @@ from tria_bot.services.gap import GapCalculatorSvc
 
 
 async def main():
-    async with GapCalculatorSvc() as svc:
-        await svc.start()
+    await GapCalculatorSvc.start()
 
 
 if __name__ == "__main__":
