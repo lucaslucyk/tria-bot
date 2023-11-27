@@ -5,6 +5,7 @@ import orjson
 from tria_bot.clients.binance import AsyncClient
 from tria_bot.conf import settings
 from tria_bot.crud.depths import DepthsCRUD
+from tria_bot.helpers.binance import Binance as BinanceHelper
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.models.composite import Symbol, TopVolumeAssets, ValidSymbols
 from tria_bot.models.depth import Depth
@@ -56,8 +57,9 @@ class ProffitSvc(BaseSvc):
         self,
     ) -> AsyncGenerator[Tuple[str, Symbol], None]:
         for pk in self._valid_symbols.symbols:
-            symbol = await self._symbols_info_crud.get(pk)
-            yield symbol.symbol, symbol
+            # symbol = await self._symbols_info_crud.get(pk)
+            # yield symbol.symbol, symbol
+            yield await self._symbols_info_crud.get(pk)
 
     async def _get_valid_symbols(self):
         return await self._valid_symbols_crud.wait_for(
@@ -83,7 +85,9 @@ class ProffitSvc(BaseSvc):
         self._symbols_info_crud = SymbolsCRUD(conn=self._redis_conn)
         self._tva = await self._get_top_volume_assets()
         self._valid_symbols = await self._get_valid_symbols()
-        self._symbols_info = {k: v async for k, v in self._get_symbols_info()}
+        # self._symbols_info = {k: v async for k, v in self._get_symbols_info()}
+        self._symbols_info = [s async for s in self._get_symbols_info()]
+        self._binance_helper = BinanceHelper(symbols=self._symbols_info)
         await self.wait_depth()
         return self
 
@@ -91,42 +95,6 @@ class ProffitSvc(BaseSvc):
         self.logger.info("Waiting for a symbol depth...")
         await self._depths_crud.wait_for(self._valid_symbols.symbols[0])
         self.logger.info("Done!")
-
-    def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
-        info = self._symbols_info.get(symbol, None)
-        if not info:
-            raise KeyError(f"Symbol {symbol} not found")
-        kind_size = getattr(info, f"{kind}_size", None)
-        if kind_size == None:
-            raise ValueError(f"Not {kind} size for symbol {symbol}")
-        return float(kind_size)
-
-    def get_step_size(self, symbol: str) -> float:
-        return self._get_size(symbol=symbol, kind="step")
-
-    def get_tick_size(self, symbol: str) -> float:
-        return self._get_size(symbol=symbol, kind="tick")
-
-    def _apply_size(
-        self,
-        symbol: str,
-        kind: Literal["step", "tick"],
-        value: Union[float, Decimal, str],
-    ) -> float:
-        kind_size = self._get_size(symbol=symbol, kind=kind)
-        return round_step_size(quantity=value, step_size=kind_size)
-
-    def apply_step_size(
-        self, symbol: str, value: Union[float, Decimal, str]
-    ) -> float:
-        return self._apply_size(symbol=symbol, kind="step", value=value)
-
-    def apply_tick_size(
-        self,
-        symbol: str,
-        value: Union[float, Decimal, str],
-    ) -> float:
-        return self._apply_size(symbol=symbol, kind="tick", value=value)
 
     def calc_proffit(
         self,
@@ -138,7 +106,8 @@ class ProffitSvc(BaseSvc):
     ):
         alt_stable_price = float(alt_stable_depth.bids[0][0])
         alt_qty = (ammount / alt_stable_price) * self.binance_fee
-        alt_sell_qty = self.apply_step_size(
+        # alt_sell_qty = self.apply_step_size(
+        alt_sell_qty = self._binance_helper.apply_step_size(
             symbol=alt_strong_depth.symbol,
             value=alt_qty,
         )
@@ -146,7 +115,8 @@ class ProffitSvc(BaseSvc):
         alt_strong_price = float(alt_strong_depth.asks[0][0])
         strong_qty = alt_sell_qty * alt_strong_price * self.binance_fee
 
-        strong_sell_qty = self.apply_step_size(
+        # strong_sell_qty = self.apply_step_size(
+        strong_sell_qty = self._binance_helper.apply_step_size(
             symbol=strong_stable_depth.symbol, value=strong_qty
         )
         strong_stable_price = float(strong_stable_depth.asks[0][0])
@@ -170,49 +140,54 @@ class ProffitSvc(BaseSvc):
     async def calc_proffits(self):
         # TODO: do this parallel
         for stg in STRONG_ASSETS:
-            strong_stable_symbol = f"{stg}{self.stable}"
-            if not self._is_valid_symbol(strong_stable_symbol):
+            try:
+                strong_stable_symbol = f"{stg}{self.stable}"
+                if not self._is_valid_symbol(strong_stable_symbol):
+                    continue
+                strong_stable = await self._depths_crud.get(strong_stable_symbol)
+            except NotFoundError:
                 continue
 
-            strong_stable = await self._depths_crud.get(strong_stable_symbol)
-
             for alt in self._tva.assets:
-                alt_strong_symbol = f"{alt}{stg}"
-                alt_stable_symbol = f"{alt}{self.stable}"
-                if not all(
-                    (
-                        self._is_valid_symbol(alt_strong_symbol),
-                        self._is_valid_symbol(alt_stable_symbol),
+                try:
+                    alt_strong_symbol = f"{alt}{stg}"
+                    alt_stable_symbol = f"{alt}{self.stable}"
+                    if not all(
+                        (
+                            self._is_valid_symbol(alt_strong_symbol),
+                            self._is_valid_symbol(alt_stable_symbol),
+                        )
+                    ):
+                        continue
+
+                    alt_stable = await self._depths_crud.get(alt_stable_symbol)
+                    alt_strong = await self._depths_crud.get(alt_strong_symbol)
+
+                    proffit = self.calc_proffit(
+                        alt_stable_depth=alt_stable,
+                        alt_strong_depth=alt_strong,
+                        strong_stable_depth=strong_stable,
+                        ammount=100,
+                        percent=True,
                     )
-                ):
+                    if proffit > self.min_proffit_detect:
+                        yield self.proffit_model(
+                            assets=f"{alt}-{stg}-{self.stable}",
+                            alt=alt,
+                            strong=stg,
+                            stable=self.stable,
+                            value=proffit,
+                        )
+                except NotFoundError:
                     continue
-
-                alt_stable = await self._depths_crud.get(alt_stable_symbol)
-                alt_strong = await self._depths_crud.get(alt_strong_symbol)
-
-                proffit = self.calc_proffit(
-                    alt_stable_depth=alt_stable,
-                    alt_strong_depth=alt_strong,
-                    strong_stable_depth=strong_stable,
-                    ammount=100,
-                    percent=True,
-                )
-                if proffit > self.min_proffit_detect:
-                    yield self.proffit_model(
-                        assets=f"{alt}-{stg}-{self.stable}",
-                        alt=alt,
-                        strong=stg,
-                        stable=self.stable,
-                        value=proffit,
-                    )
 
     async def proffit_loop(self):
         while self._is_running:
             # proffits = [p async for p in self.calc_proffits()]
             async for proffit in self.calc_proffits():
-                self.logger.info(f"New proffit detectec ({proffit})")
+                # self.logger.info(f"New proffit detectec ({proffit})")
                 await self.publish_proffit(proffit=proffit)
-            #await self._proffits_crud.add(proffits)
+            # await self._proffits_crud.add(proffits)
 
     @classmethod
     async def start(cls) -> None:

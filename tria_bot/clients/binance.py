@@ -1,5 +1,4 @@
 from asyncio import sleep
-from decimal import Decimal
 from pathlib import Path
 from typing import (
     Any,
@@ -8,18 +7,16 @@ from typing import (
     Generator,
     Iterable,
     List,
-    Literal,
     Optional,
+    Sequence,
     Tuple,
-    Union,
 )
 from binance import AsyncClient as BinanceAsyncClient
 from binance.client import BaseClient
 from binance.exceptions import BinanceAPIException
-from binance.helpers import round_step_size
 from time import time
+from tria_bot.helpers.binance import Binance as BinanceHelper
 from tria_bot.models.composite import Symbol
-from tria_bot.helpers.utils import format_float_positional as ffp
 
 
 class SymbolInfoException(Exception):
@@ -48,15 +45,15 @@ class Decorators:
         return decorator
 
 
-class SymbolsInfo:
-    def __init__(self, symbols: List[Symbol] = None) -> None:
-        if not symbols:
-            return
-        for symbol in symbols:
-            setattr(self, symbol.symbol, symbol)
+# class SymbolsInfo:
+#     def __init__(self, symbols: List[Symbol] = None) -> None:
+#         if not symbols:
+#             return
+#         for symbol in symbols:
+#             setattr(self, symbol.symbol, symbol)
 
-    def symbol_info(self, symbol: str) -> Symbol:
-        return getattr(self, symbol, None)
+#     def symbol_info(self, symbol: str) -> Symbol:
+#         return getattr(self, symbol, None)
 
 
 class AsyncClient(BinanceAsyncClient):
@@ -72,7 +69,7 @@ class AsyncClient(BinanceAsyncClient):
         session_params: Dict[str, Any] | None = None,
         private_key: str | Path | None = None,
         private_key_pass: str | None = None,
-        symbols: Optional[List[Symbol]] = None,
+        symbols: Optional[Sequence[Symbol]] = None,
     ):
         super().__init__(
             api_key,
@@ -86,7 +83,8 @@ class AsyncClient(BinanceAsyncClient):
             private_key,
             private_key_pass,
         )
-        self._symbols = SymbolsInfo(symbols=symbols or [])
+        # self._symbols = SymbolsInfo(symbols=symbols or [])
+        self._binance_helper = BinanceHelper(symbols=symbols)
 
     async def __aenter__(self) -> "AsyncClient":
         return self
@@ -112,15 +110,17 @@ class AsyncClient(BinanceAsyncClient):
             method, path, signed, version, **kwargs
         )
 
-    async def get_valid_symbols(self)-> Generator[str, Any, None]:
+    async def get_valid_symbols(self) -> Generator[str, Any, None]:
         exchange_info = await self.get_exchange_info()
         for symbol in exchange_info.get("symbols", []):
-            if all((
-                symbol.get('status', None) == "TRADING",
-                "SPOT" in symbol.get("permissions", []),
-                "LIMIT" in symbol.get("orderTypes", []),
-            )):
-                yield symbol.get('symbol', '')
+            if all(
+                (
+                    symbol.get("status", None) == "TRADING",
+                    "SPOT" in symbol.get("permissions", []),
+                    "LIMIT" in symbol.get("orderTypes", []),
+                )
+            ):
+                yield symbol.get("symbol", "")
 
     async def get_symbols_info(
         self,
@@ -150,44 +150,44 @@ class AsyncClient(BinanceAsyncClient):
         res = await self.get_account(**params)
         return filter(filter_assets, res.get("balances", []))
 
-    def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
-        # check kind size
-        kind_size: float = getattr(
-            self._symbols.symbol_info(symbol=symbol), f"{kind}_size", None
-        )
+    # def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
+    #     # check kind size
+    #     kind_size: float = getattr(
+    #         self._symbols.symbol_info(symbol=symbol), f"{kind}_size", None
+    #     )
 
-        if not kind_size:
-            raise SymbolSizeException(f"Not {kind}Size for symbol {symbol}")
+    #     if not kind_size:
+    #         raise SymbolSizeException(f"Not {kind}Size for symbol {symbol}")
 
-        # get step size (min quote)
-        return float(kind_size)
+    #     # get step size (min quote)
+    #     return float(kind_size)
 
-    def get_step_size(self, symbol: str) -> float:
-        return self._get_size(symbol=symbol, kind="step")
+    # def get_step_size(self, symbol: str) -> float:
+    #     return self._get_size(symbol=symbol, kind="step")
 
-    def get_tick_size(self, symbol: str) -> float:
-        return self._get_size(symbol=symbol, kind="tick")
+    # def get_tick_size(self, symbol: str) -> float:
+    #     return self._get_size(symbol=symbol, kind="tick")
 
-    def _apply_size(
-        self,
-        symbol: str,
-        kind: Literal["step", "tick"],
-        value: Union[float, Decimal, str],
-    ) -> float:
-        kind_size = self._get_size(symbol=symbol, kind=kind)
-        return round_step_size(quantity=value, step_size=kind_size)
+    # def _apply_size(
+    #     self,
+    #     symbol: str,
+    #     kind: Literal["step", "tick"],
+    #     value: Union[float, Decimal, str],
+    # ) -> float:
+    #     kind_size = self._get_size(symbol=symbol, kind=kind)
+    #     return round_step_size(quantity=value, step_size=kind_size)
 
-    def apply_step_size(
-        self, symbol: str, value: Union[float, Decimal, str]
-    ) -> float:
-        return self._apply_size(symbol=symbol, kind="step", value=value)
+    # def apply_step_size(
+    #     self, symbol: str, value: Union[float, Decimal, str]
+    # ) -> float:
+    #     return self._apply_size(symbol=symbol, kind="step", value=value)
 
-    def apply_tick_size(
-        self,
-        symbol: str,
-        value: Union[float, Decimal, str],
-    ) -> float:
-        return self._apply_size(symbol=symbol, kind="tick", value=value)
+    # def apply_tick_size(
+    #     self,
+    #     symbol: str,
+    #     value: Union[float, Decimal, str],
+    # ) -> float:
+    #     return self._apply_size(symbol=symbol, kind="tick", value=value)
 
     async def get_free_balance(self, asset: str, **params) -> float:
         balance = await self.get_asset_balance(asset=asset, **params)
@@ -268,14 +268,16 @@ class AsyncClient(BinanceAsyncClient):
             raise ValueError("Must specify only one quantity or ammount")
 
         symbol = f"{target_asset}{source_asset}"
-        to_buy = self.apply_step_size(
+        to_buy = self._binance_helper.apply_step_size(
             symbol=symbol,
             value=quantity or (ammount / price),
         )
-        to_buy = ffp(x=to_buy)
+        to_buy = self._binance_helper._ffp(x=to_buy)
 
-        exchange_price = self.apply_tick_size(symbol=symbol, value=price)
-        exchange_price = ffp(x=exchange_price)
+        exchange_price = self._binance_helper.apply_tick_size(
+            symbol=symbol, value=price
+        )
+        exchange_price = self._binance_helper._ffp(x=exchange_price)
         return await self.order_limit_buy(
             symbol=symbol,
             quantity=to_buy,
@@ -290,10 +292,14 @@ class AsyncClient(BinanceAsyncClient):
         quantity: Optional[float] = None,
     ) -> Dict[str, Any]:
         symbol = f"{target_asset}{source_asset}"
-        to_sell = self.apply_step_size(symbol=symbol, value=quantity)
-        to_sell = ffp(x=to_sell)
-        exchange_price = self.apply_tick_size(symbol=symbol, value=price)
-        exchange_price = ffp(x=exchange_price)
+        to_sell = self._binance_helper.apply_step_size(
+            symbol=symbol, value=quantity
+        )
+        to_sell = self._binance_helper._ffp(x=to_sell)
+        exchange_price = self._binance_helper.apply_tick_size(
+            symbol=symbol, value=price
+        )
+        exchange_price = self._binance_helper._ffp(x=exchange_price)
 
         return await self.order_limit_sell(
             symbol=symbol,
