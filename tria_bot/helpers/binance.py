@@ -28,6 +28,10 @@ class Binance:
         return format(d1, "f")
 
     def _ffp(self, x: float, precision: int = 8):
+        """
+        Convert the given float to a string,
+        without resorting to scientific notation
+        """
         return self.format_float_positional(x=x, precision=precision)
 
     def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
