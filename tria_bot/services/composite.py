@@ -206,7 +206,6 @@ class CompositeSvc:
             await self.on_change_handler(old=old, new=data)
             await self.refresh_symbols(assets=data)
 
-
     async def refresh(self, interval: Optional[float] = None) -> None:
         """Get top volume assets and refresh into database if change
 

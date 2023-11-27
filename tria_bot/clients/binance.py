@@ -115,7 +115,12 @@ class AsyncClient(BinanceAsyncClient):
     async def get_valid_symbols(self)-> Generator[str, Any, None]:
         exchange_info = await self.get_exchange_info()
         for symbol in exchange_info.get("symbols", []):
-            yield symbol.get('symbol', '')
+            if all((
+                symbol.get('status', None) == "TRADING",
+                "SPOT" in symbol.get("permissions", []),
+                "LIMIT" in symbol.get("orderTypes", []),
+            )):
+                yield symbol.get('symbol', '')
 
     async def get_symbols_info(
         self,

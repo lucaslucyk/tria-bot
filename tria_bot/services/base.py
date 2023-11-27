@@ -158,7 +158,7 @@ class SocketBaseSvc(Generic[ModelType], ABC):
                     await asyncio.sleep(0.001)
 
                 except SocketError as err:
-                    if self._is_running:
-                        self.logger.error(f"Socket error: {err}.\nReconnecting...")
-                        await asyncio.sleep(0.1)
-                        return await self.subscribe()
+                    # if self._is_running:
+                    self.logger.error(f"Socket error: {err}.\nReconnecting...")
+                    await asyncio.sleep(0.1)
+                    return await self.subscribe()

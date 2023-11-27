@@ -126,5 +126,23 @@ services:
     networks:
       - triabot
 
+  tria-proffit:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-proffit
+    command: ["poetry", "run", "python", "tria_bot/proffit.py"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
 networks:
   triabot:
