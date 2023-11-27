@@ -1,8 +1,6 @@
-from decimal import Decimal
-from typing import AsyncGenerator, Literal, Tuple, Union
+from typing import AsyncGenerator, Tuple
 from binance.helpers import round_step_size
 import orjson
-from tria_bot.clients.binance import AsyncClient
 from tria_bot.conf import settings
 from tria_bot.crud.depths import DepthsCRUD
 from tria_bot.helpers.binance import Binance as BinanceHelper
@@ -144,7 +142,9 @@ class ProffitSvc(BaseSvc):
                 strong_stable_symbol = f"{stg}{self.stable}"
                 if not self._is_valid_symbol(strong_stable_symbol):
                     continue
-                strong_stable = await self._depths_crud.get(strong_stable_symbol)
+                strong_stable = await self._depths_crud.get(
+                    strong_stable_symbol
+                )
             except NotFoundError:
                 continue
 

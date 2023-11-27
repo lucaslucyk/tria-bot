@@ -6,7 +6,6 @@ from decimal import Context
 
 
 class Binance:
-
     def __init__(self, symbols: Optional[Sequence[Symbol]] = None, **kwargs):
         self._context = Context()
         self._symbols_info = {}
@@ -35,6 +34,19 @@ class Binance:
         return self.format_float_positional(x=x, precision=precision)
 
     def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
+        """Get symbol size
+
+        Args:
+            symbol (str): Symbol str
+            kind (Literal["step", "tick"]): Size kind
+
+        Raises:
+            KeyError: If symbol not found
+            ValueError: If kind size not found
+
+        Returns:
+            float: Kind size
+        """
         info = self._symbols_info.get(symbol, None)
         if not info:
             raise KeyError(f"Symbol {symbol} not found")
@@ -55,6 +67,16 @@ class Binance:
         kind: Literal["step", "tick"],
         value: Union[float, Decimal, str],
     ) -> float:
+        """Get and apply symbol kind zize to a value
+
+        Args:
+            symbol (str): Symbol str
+            kind (Literal["step", "tick"]): Size kind
+            value (Union[float, Decimal, str]): Value to apply
+
+        Returns:
+            float: Applied size kind
+        """
         kind_size = self._get_size(symbol=symbol, kind=kind)
         return round_step_size(quantity=value, step_size=kind_size)
 
