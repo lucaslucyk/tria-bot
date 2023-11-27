@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import AsyncGenerator, Literal, Tuple, Union
 from binance.helpers import round_step_size
+import orjson
 from tria_bot.clients.binance import AsyncClient
 from tria_bot.conf import settings
 from tria_bot.crud.depths import DepthsCRUD
@@ -31,6 +32,8 @@ class ProffitSvc(BaseSvc):
     valid_symbols_model = ValidSymbols
     stable = settings.USE_STABLE_ASSET
     binance_fee = settings.BINANCE_FEE_MULTIPLIER
+    min_proffit_detect = settings.MIN_PROFFIT_DETECT
+    proffit_event = "proffit-detected"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -88,7 +91,6 @@ class ProffitSvc(BaseSvc):
         self.logger.info("Waiting for a symbol depth...")
         await self._depths_crud.wait_for(self._valid_symbols.symbols[0])
         self.logger.info("Done!")
-
 
     def _get_size(self, symbol: str, kind: Literal["step", "tick"]) -> float:
         info = self._symbols_info.get(symbol, None)
@@ -158,7 +160,15 @@ class ProffitSvc(BaseSvc):
     def _is_valid_symbol(self, symbol: str) -> bool:
         return symbol in self._valid_symbols.symbols
 
+    async def publish_proffit(self, proffit: Proffit) -> None:
+        data = {"event": self.proffit_event, "proffit": proffit.json()}
+        await self._redis_conn.publish(
+            settings.PUBSUB_PROFFIT_CHANNEL,
+            orjson.dumps(data),
+        )
+
     async def calc_proffits(self):
+        # TODO: do this parallel
         for stg in STRONG_ASSETS:
             strong_stable_symbol = f"{stg}{self.stable}"
             if not self._is_valid_symbol(strong_stable_symbol):
@@ -177,7 +187,6 @@ class ProffitSvc(BaseSvc):
                 ):
                     continue
 
-
                 alt_stable = await self._depths_crud.get(alt_stable_symbol)
                 alt_strong = await self._depths_crud.get(alt_strong_symbol)
 
@@ -188,20 +197,22 @@ class ProffitSvc(BaseSvc):
                     ammount=100,
                     percent=True,
                 )
-                if proffit > 0.0:
-                    self.logger.info(f"Proffit with {alt}-{stg}-{self.stable}")
-                yield self.proffit_model(
-                    assets=f"{alt}-{stg}-{self.stable}",
-                    alt=alt,
-                    strong=stg,
-                    stable=self.stable,
-                    value=proffit,
-                )
+                if proffit > self.min_proffit_detect:
+                    yield self.proffit_model(
+                        assets=f"{alt}-{stg}-{self.stable}",
+                        alt=alt,
+                        strong=stg,
+                        stable=self.stable,
+                        value=proffit,
+                    )
 
     async def proffit_loop(self):
         while self._is_running:
-            proffits = [p async for p in self.calc_proffits()]
-            await self._proffits_crud.add(proffits)
+            # proffits = [p async for p in self.calc_proffits()]
+            async for proffit in self.calc_proffits():
+                self.logger.info(f"New proffit detectec ({proffit})")
+                await self.publish_proffit(proffit=proffit)
+            #await self._proffits_crud.add(proffits)
 
     @classmethod
     async def start(cls) -> None:

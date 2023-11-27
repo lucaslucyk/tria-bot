@@ -9,11 +9,12 @@ class Settings(BaseSettings):
     
     # pubsub channels
     PUBSUB_TOP_VOLUME_CHANNEL: str = "top-volume-assets-change"
+    PUBSUB_PROFFIT_CHANNEL: str = "proffit-detection"
 
     # services
     COMPOSITE_LOOP_INTERVAL: float = 60.0
     GAP_MIN: float = 1.5
-    PROFFIT_MIN: float = .3
+    MIN_PROFFIT_DETECT: float = .3  # percent
 
     class Config:
         extra = "ignore"
