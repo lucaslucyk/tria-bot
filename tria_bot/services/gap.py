@@ -6,6 +6,7 @@ from tria_bot.conf import settings
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.helpers.utils import async_filter
 from tria_bot.models.composite import TopVolumeAssets, ValidSymbols
+
 # from tria_bot.models.gap import Gap
 from tria_bot.schemas.gap import Gap
 from tria_bot.models.ticker import Ticker
@@ -39,7 +40,6 @@ class GapCalculatorSvc(BaseSvc):
         self._valid_symbols = None
 
         self._is_running = True
-
 
     async def __aenter__(self) -> "GapCalculatorSvc":
         await super().__aenter__()
@@ -105,29 +105,30 @@ class GapCalculatorSvc(BaseSvc):
     #         gap.dict()
     #         async for gap in self.calc_gaps()
     #     ]}
-        
+
     #     await self._redis_conn.publish(
     #         settings.PUBSUB_PROFFIT_CHANNEL,
     #         orjson.dumps(data),
     #     )
 
     async def publish_gaps(self, gaps: Sequence[Gap]) -> None:
-        data = {"event": self.gaps_event, "data": [g.model_dump() for g in gaps]}
+        data = {
+            "event": self.gaps_event,
+            "data": [g.model_dump() for g in gaps],
+        }
         await self._redis_conn.publish(
-            settings.PUBSUB_GAPS_CHANNEL,
-            orjson.dumps(data)
+            settings.PUBSUB_GAPS_CHANNEL, orjson.dumps(data)
         )
 
-    async def gaps_loop(self):
-        while self._is_running:
-            await self.calc_publish_gaps()
+    # async def gaps_loop(self):
+    #     while self._is_running:
+    #         await self.calc_publish_gaps()
 
     async def gaps_loop(self):
+        def is_valid(gap: Gap) -> bool:
+            return gap.value >= settings.GAP_MIN
+
         while self._is_running:
-
-            def is_valid(gap: Gap) -> bool:
-                return gap.value >= settings.GAP_MIN
-
             gaps = [_ async for _ in async_filter(is_valid, self.calc_gaps())]
             if gaps:
                 # await self._gaps_crud.add(models=gaps)
