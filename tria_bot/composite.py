@@ -3,7 +3,7 @@ from tria_bot.services.composite import CompositeSvc
 
 
 async def main():
-    await CompositeSvc.start(interval=3.0)
+    await CompositeSvc.start()
 
 
 if __name__ == "__main__":

@@ -35,42 +35,42 @@ services:
     networks:
       - triabot
 
-  tria-tickers:
-    image: tria-bot
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: tria-tickers
-    command: ["poetry", "run", "python", "tria_bot/tickers.py"]
-    env_file:
-      - .env
-    restart: "on-failure"
-    depends_on:
-      - tria-redis
-      - tria-composite
-    volumes:
-      - ./tria_bot:/app/tria_bot
-    networks:
-      - triabot
+  # tria-tickers:
+  #   image: tria-bot
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: tria-tickers
+  #   command: ["poetry", "run", "python", "tria_bot/tickers.py"]
+  #   env_file:
+  #     - .env
+  #   restart: "on-failure"
+  #   depends_on:
+  #     - tria-redis
+  #     - tria-composite
+  #   volumes:
+  #     - ./tria_bot:/app/tria_bot
+  #   networks:
+  #     - triabot
   
-  tria-gaps:
-    image: tria-bot
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: tria-gaps
-    command: ["poetry", "run", "python", "tria_bot/gaps.py"]
-    env_file:
-      - .env
-    restart: "on-failure"
-    depends_on:
-      - tria-redis
-      - tria-composite
-      - tria-tickers
-    volumes:
-      - ./tria_bot:/app/tria_bot
-    networks:
-      - triabot
+  # tria-gaps:
+  #   image: tria-bot
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: tria-gaps
+  #   command: ["poetry", "run", "python", "tria_bot/gaps.py"]
+  #   env_file:
+  #     - .env
+  #   restart: "on-failure"
+  #   depends_on:
+  #     - tria-redis
+  #     - tria-composite
+  #     - tria-tickers
+  #   volumes:
+  #     - ./tria_bot:/app/tria_bot
+  #   networks:
+  #     - triabot
 
   tria-depth-1:
     image: tria-bot

@@ -30,9 +30,12 @@ class ProffitSvc(BaseSvc):
     symbol_model = Symbol
     valid_symbols_model = ValidSymbols
     stable = settings.USE_STABLE_ASSET
-    binance_fee = settings.BINANCE_FEE_MULTIPLIER
+    # TODO: get from api and use fee by symbol
+    fee_mult = 1 - settings.EXCHANGE_FEE
     min_proffit_detect = settings.MIN_PROFFIT_DETECT
     proffit_event = "proffit-detected"
+    calc_index = settings.PROFFIT_INDEX
+    proffit_percent_format = settings.PROFFIT_PERCENT_FORMAT
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -90,8 +93,8 @@ class ProffitSvc(BaseSvc):
         return self
 
     async def wait_depth(self) -> None:
-        self.logger.info("Waiting for a symbol depth...")
-        await self._depths_crud.wait_for(self._valid_symbols.symbols[0])
+        self.logger.info("Waiting for last symbol depth...")
+        await self._depths_crud.wait_for(self._valid_symbols.symbols[-1])
         self.logger.info("Done!")
 
     def calc_proffit(
@@ -100,28 +103,31 @@ class ProffitSvc(BaseSvc):
         alt_strong_depth: Depth,
         strong_stable_depth: Depth,
         ammount: float = 100.0,
-        percent: bool = True,
+        # percent: bool = True,
     ):
-        alt_stable_price = float(alt_stable_depth.bids[0][0])
-        alt_qty = (ammount / alt_stable_price) * self.binance_fee
+        alt_stable_price = float(alt_stable_depth.bids[self.calc_index][0])
+        alt_qty = (ammount / alt_stable_price) * self.fee_mult
         # alt_sell_qty = self.apply_step_size(
         alt_sell_qty = self._binance_helper.apply_step_size(
             symbol=alt_strong_depth.symbol,
             value=alt_qty,
         )
 
-        alt_strong_price = float(alt_strong_depth.asks[0][0])
-        strong_qty = alt_sell_qty * alt_strong_price * self.binance_fee
+        alt_strong_price = float(alt_strong_depth.asks[self.calc_index][0])
+        strong_qty = alt_sell_qty * alt_strong_price * self.fee_mult
 
         # strong_sell_qty = self.apply_step_size(
         strong_sell_qty = self._binance_helper.apply_step_size(
-            symbol=strong_stable_depth.symbol, value=strong_qty
+            symbol=strong_stable_depth.symbol,
+            value=strong_qty,
         )
-        strong_stable_price = float(strong_stable_depth.asks[0][0])
-        stable_qty = strong_sell_qty * strong_stable_price * self.binance_fee
+        strong_stable_price = float(
+            strong_stable_depth.asks[self.calc_index][0]
+        )
+        stable_qty = strong_sell_qty * strong_stable_price * self.fee_mult
 
         proffit = stable_qty / ammount - 1
-        if percent:
+        if self.proffit_percent_format:
             proffit = proffit * 100
         return round(proffit, 2)
 
@@ -168,7 +174,7 @@ class ProffitSvc(BaseSvc):
                         alt_strong_depth=alt_strong,
                         strong_stable_depth=strong_stable,
                         ammount=100,
-                        percent=True,
+                        # percent=True,
                     )
                     if proffit > self.min_proffit_detect:
                         yield self.proffit_model(
