@@ -1,3 +1,5 @@
+import asyncio
+import time
 from typing import AsyncGenerator, Tuple
 from binance.helpers import round_step_size
 import orjson
@@ -10,6 +12,7 @@ from tria_bot.models.depth import Depth
 from tria_bot.models.gap import Gap
 from tria_bot.models.proffit import Proffit
 from tria_bot.models.ticker import Ticker
+from tria_bot.schemas.message import ProffitMessage
 from tria_bot.services.base import BaseSvc
 from tria_bot.crud.composite import (
     SymbolsCRUD,
@@ -36,6 +39,7 @@ class ProffitSvc(BaseSvc):
     proffit_event = "proffit-detected"
     calc_index = settings.PROFFIT_INDEX
     proffit_percent_format = settings.PROFFIT_PERCENT_FORMAT
+    top_volume_channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -97,6 +101,19 @@ class ProffitSvc(BaseSvc):
         await self._depths_crud.wait_for(self._valid_symbols.symbols[-1])
         self.logger.info("Done!")
 
+    async def ps_subscribe(self):
+        async with self._redis_conn.pubsub(
+            ignore_subscribe_messages=True
+        ) as ps:
+            await ps.subscribe(self.top_volume_channel)
+            self.logger.info(f"Subscribed to {self.top_volume_channel}")
+            async for msg in ps.listen():
+                if msg != None:
+                    self.logger.info("Top Volume Assets has changed")
+                    self._is_running = False
+                    await ps.unsubscribe()
+                    break
+
     def calc_proffit(
         self,
         alt_stable_depth: Depth,
@@ -135,10 +152,16 @@ class ProffitSvc(BaseSvc):
         return symbol in self._valid_symbols.symbols
 
     async def publish_proffit(self, proffit: Proffit) -> None:
-        data = {"event": self.proffit_event, "data": proffit.dict()}
+        msg = ProffitMessage(
+            # timestamp=int(time.time_ns() / 1000000),
+            event=self.proffit_event,
+            data=proffit.dict()
+        )
+        # data = {"event": self.proffit_event, "data": proffit.dict()}
         await self._redis_conn.publish(
             settings.PUBSUB_PROFFIT_CHANNEL,
-            orjson.dumps(data),
+            # orjson.dumps(data),
+            orjson.dumps(msg.model_dump())
         )
 
     async def calc_proffits(self):
@@ -197,5 +220,7 @@ class ProffitSvc(BaseSvc):
 
     @classmethod
     async def start(cls) -> None:
-        async with cls() as svc:
-            await svc.proffit_loop()
+        while True:
+            async with cls() as svc:
+                svc.logger.info("Starting service...")
+                await asyncio.gather(svc.proffit_loop(), svc.ps_subscribe())

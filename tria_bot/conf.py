@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     GAP_MIN: float = 3.0
     PROFFIT_PERCENT_FORMAT: bool = True
     MIN_PROFFIT_DETECT: float = .3  # percent
-    PROFFIT_INDEX: int = 1
+    PROFFIT_INDEX: int = 0
 
     class Config:
         extra = "ignore"

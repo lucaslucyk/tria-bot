@@ -144,5 +144,24 @@ services:
     networks:
       - triabot
 
+  tria-arbitrage:
+    image: tria-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tria-arbitrage
+    command: ["poetry", "run", "python", "tria_bot/arbitrage.py"]
+    env_file:
+      - .env
+    restart: "on-failure"
+    depends_on:
+      - tria-redis
+      - tria-composite
+      - tria-proffit
+    volumes:
+      - ./tria_bot:/app/tria_bot
+    networks:
+      - triabot
+
 networks:
   triabot:
