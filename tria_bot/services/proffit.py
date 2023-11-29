@@ -129,7 +129,7 @@ class ProffitSvc(BaseSvc):
         return symbol in self._valid_symbols.symbols
 
     async def publish_proffit(self, proffit: Proffit) -> None:
-        data = {"event": self.proffit_event, "proffit": proffit.json()}
+        data = {"event": self.proffit_event, "data": proffit.dict()}
         await self._redis_conn.publish(
             settings.PUBSUB_PROFFIT_CHANNEL,
             orjson.dumps(data),

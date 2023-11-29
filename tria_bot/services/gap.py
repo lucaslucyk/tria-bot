@@ -1,4 +1,7 @@
 import asyncio
+from typing import Sequence
+
+import orjson
 from tria_bot.conf import settings
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.helpers.utils import async_filter
@@ -22,6 +25,8 @@ class GapCalculatorSvc(BaseSvc):
     valid_symbols_model = ValidSymbols
     stable = settings.USE_STABLE_ASSET
     top_volume_channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
+    gaps_channel = settings.PUBSUB_GAPS_CHANNEL
+    gaps_event = "gaps-event"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -94,14 +99,38 @@ class GapCalculatorSvc(BaseSvc):
             except NotFoundError:
                 pass
 
+    # async def calc_publish_gaps(self) -> None:
+    #     data = {"event": self.gaps_event, "gaps": [
+    #         gap.dict()
+    #         async for gap in self.calc_gaps()
+    #     ]}
+        
+    #     await self._redis_conn.publish(
+    #         settings.PUBSUB_PROFFIT_CHANNEL,
+    #         orjson.dumps(data),
+    #     )
+
+    async def publish_gaps(self, gaps: Sequence[Gap]) -> None:
+        data = {"event": self.gaps_event, "data": [g.dict() for g in gaps]}
+        await self._redis_conn.publish(
+            settings.PUBSUB_GAPS_CHANNEL,
+            orjson.dumps(data)
+        )
+
     async def gaps_loop(self):
         while self._is_running:
+            await self.calc_publish_gaps()
+
+    async def gaps_loop(self):
+        while self._is_running:
+
             def is_valid(gap: Gap) -> bool:
                 return gap.value >= settings.GAP_MIN
 
             gaps = [_ async for _ in async_filter(is_valid, self.calc_gaps())]
             if gaps:
-                await self._gaps_crud.add(models=gaps)
+                # await self._gaps_crud.add(models=gaps)
+                await self.publish_gaps(gaps=gaps)
 
     @classmethod
     async def start(cls):
