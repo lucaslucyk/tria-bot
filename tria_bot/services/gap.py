@@ -9,6 +9,7 @@ from tria_bot.models.composite import TopVolumeAssets, ValidSymbols
 
 # from tria_bot.models.gap import Gap
 from tria_bot.schemas.gap import Gap
+from tria_bot.schemas.message import GapsMessage
 from tria_bot.models.ticker import Ticker
 from tria_bot.services.base import BaseSvc
 from tria_bot.crud.composite import (
@@ -112,12 +113,12 @@ class GapCalculatorSvc(BaseSvc):
     #     )
 
     async def publish_gaps(self, gaps: Sequence[Gap]) -> None:
-        data = {
-            "event": self.gaps_event,
-            "data": [g.model_dump() for g in gaps],
-        }
+        msg = GapsMessage(
+            event=self.gaps_event,
+            data=[g.model_dump() for g in gaps]
+        )
         await self._redis_conn.publish(
-            settings.PUBSUB_GAPS_CHANNEL, orjson.dumps(data)
+            settings.PUBSUB_GAPS_CHANNEL, orjson.dumps(msg.model_dump())
         )
 
     # async def gaps_loop(self):
