@@ -6,7 +6,8 @@ from tria_bot.conf import settings
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.helpers.utils import async_filter
 from tria_bot.models.composite import TopVolumeAssets, ValidSymbols
-from tria_bot.models.gap import Gap
+# from tria_bot.models.gap import Gap
+from tria_bot.schemas.gap import Gap
 from tria_bot.models.ticker import Ticker
 from tria_bot.services.base import BaseSvc
 from tria_bot.crud.composite import (
@@ -33,7 +34,7 @@ class GapCalculatorSvc(BaseSvc):
         self._tva_crud = None
         self._tva = None
         self._tickers_crud = None
-        self._gaps_crud = None
+        # self._gaps_crud = None
         self._valid_symbols_crud = None
         self._valid_symbols = None
 
@@ -45,7 +46,7 @@ class GapCalculatorSvc(BaseSvc):
         await Migrator().run()
         self._tva_crud = TVACrud(conn=self._redis_conn)
         self._tickers_crud = TickersCRUD(conn=self._redis_conn)
-        self._gaps_crud = GapsCRUD(conn=self._redis_conn)
+        # self._gaps_crud = GapsCRUD(conn=self._redis_conn)
         self._valid_symbols_crud = VSCrud(conn=self._redis_conn)
         self._tva = await self._get_top_volume_assets()
         self._valid_symbols = await self._get_valid_symbols()
@@ -90,7 +91,7 @@ class GapCalculatorSvc(BaseSvc):
                     strong = await self._tickers_crud.get(alt_strong_symbol)
                     strong_pcp = float(strong.price_change_percent)
                     yield self.gap_model(
-                        assets=f"{alt}-{stg}-{self.stable}",
+                        # assets=f"{alt}-{stg}-{self.stable}",
                         alt=alt,
                         strong=stg,
                         stable=self.stable,
@@ -111,7 +112,7 @@ class GapCalculatorSvc(BaseSvc):
     #     )
 
     async def publish_gaps(self, gaps: Sequence[Gap]) -> None:
-        data = {"event": self.gaps_event, "data": [g.dict() for g in gaps]}
+        data = {"event": self.gaps_event, "data": [g.model_dump() for g in gaps]}
         await self._redis_conn.publish(
             settings.PUBSUB_GAPS_CHANNEL,
             orjson.dumps(data)

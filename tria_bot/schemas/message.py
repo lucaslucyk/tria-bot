@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 from pydantic import BaseModel
 
 
@@ -10,3 +10,6 @@ class RedisMessage(BaseModel):
 
 class ProffitMessage(RedisMessage):
     data: Dict[str, Any]
+
+class GapsMessage(RedisMessage):
+    data: List[Dict[str, Any]]

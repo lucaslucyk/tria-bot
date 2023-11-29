@@ -10,7 +10,8 @@ from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.models.composite import Symbol, TopVolumeAssets, ValidSymbols
 from tria_bot.models.depth import Depth
 from tria_bot.models.gap import Gap
-from tria_bot.models.proffit import Proffit
+# from tria_bot.models.proffit import Proffit
+from tria_bot.schemas.proffit import Proffit
 from tria_bot.models.ticker import Ticker
 from tria_bot.schemas.message import ProffitMessage
 from tria_bot.services.base import BaseSvc
@@ -28,6 +29,7 @@ class ProffitSvc(BaseSvc):
     tva_model = TopVolumeAssets
     tickers_model = Ticker
     depths_model = Depth
+    # proffit_model = Proffit
     proffit_model = Proffit
     gap_model = Gap
     symbol_model = Symbol
@@ -151,19 +153,6 @@ class ProffitSvc(BaseSvc):
     def _is_valid_symbol(self, symbol: str) -> bool:
         return symbol in self._valid_symbols.symbols
 
-    async def publish_proffit(self, proffit: Proffit) -> None:
-        msg = ProffitMessage(
-            # timestamp=int(time.time_ns() / 1000000),
-            event=self.proffit_event,
-            data=proffit.dict()
-        )
-        # data = {"event": self.proffit_event, "data": proffit.dict()}
-        await self._redis_conn.publish(
-            settings.PUBSUB_PROFFIT_CHANNEL,
-            # orjson.dumps(data),
-            orjson.dumps(msg.model_dump())
-        )
-
     async def calc_proffits(self):
         # TODO: do this parallel
         for stg in STRONG_ASSETS:
@@ -201,14 +190,33 @@ class ProffitSvc(BaseSvc):
                     )
                     if proffit > self.min_proffit_detect:
                         yield self.proffit_model(
-                            assets=f"{alt}-{stg}-{self.stable}",
+                            # assets=f"{alt}-{stg}-{self.stable}",
                             alt=alt,
                             strong=stg,
                             stable=self.stable,
                             value=proffit,
+                            prices=(
+                                alt_stable.bids[self.calc_index][0],
+                                alt_strong.asks[self.calc_index][0],
+                                strong_stable.asks[self.calc_index][0]
+                            )
                         )
                 except NotFoundError:
                     continue
+
+    async def publish_proffit(self, proffit: Proffit) -> None:
+        msg = ProffitMessage(
+            # timestamp=int(time.time_ns() / 1000000),
+            event=self.proffit_event,
+            data=proffit.model_dump()
+        )
+        # data = {"event": self.proffit_event, "data": proffit.dict()}
+        await self._redis_conn.publish(
+            settings.PUBSUB_PROFFIT_CHANNEL,
+            # orjson.dumps(data),
+            orjson.dumps(msg.model_dump())
+        )
+
 
     async def proffit_loop(self):
         while self._is_running:

@@ -5,7 +5,8 @@ import anyio
 
 import orjson
 from tria_bot.clients.binance import AsyncClient
-from tria_bot.models.proffit import Proffit
+# from tria_bot.models.proffit import Proffit
+from tria_bot.schemas.proffit import Proffit
 from tria_bot.schemas.message import ProffitMessage
 from tria_bot.services.base import BaseSvc
 from tria_bot.conf import settings
