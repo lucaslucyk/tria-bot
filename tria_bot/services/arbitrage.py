@@ -4,7 +4,7 @@ from typing import Any, AsyncGenerator, Dict, Optional, Tuple
 import anyio
 
 import orjson
-from tria_bot.clients.binance import AsyncClient
+from tria_bot.clients.binance import AsyncClient, BinanceAPIException
 from tria_bot.crud.composite import (
     SymbolsCRUD,
     TopVolumeAssetsCRUD as TVACrud,
@@ -112,16 +112,32 @@ class ArbitrageSvc(BaseSvc):
         return proffit
 
     async def safe_cancel_order(self, order: Dict[str, Any]) -> Dict[str, Any]:
-        orderId = order.get("orderId")
-        self.logger.info(f"Canceling order {orderId}...")
-        order = await self._binance.cancel_order(
-            symbol=order.get("symbol"),
-            orderId=orderId,
-        )
-        return await self._binance.wait_order_canceled(
-            order=order,
-            max_wait_time=settings.ORDER_MAX_WAIT_TIMES[0],
-        )
+        try:
+            orderId = order.get("orderId")
+            self.logger.info(f"Canceling order {orderId}...")
+            order = await self._binance.cancel_order(
+                symbol=order.get("symbol"),
+                orderId=orderId,
+            )
+            return await self._binance.wait_order_canceled(
+                order=order,
+                max_wait_time=settings.ORDER_MAX_WAIT_TIMES[0],
+            )
+        except BinanceAPIException as err:
+            if err.code == -2011:
+                # check order filled
+                order = await self._binance.get_order(
+                    orderId=orderId,
+                    symbol=order.get("symbol"),
+                )
+                filled_status = (
+                    self._binance.ORDER_STATUS_FILLED,
+                    self._binance.ORDER_STATUS_PARTIALLY_FILLED,
+                )
+                if order.get("status", "").upper() in filled_status:
+                    return order
+                raise
+            raise
 
     async def _buy_alt(self, proffit: Proffit) -> Dict[str, Any]:
         # 1. get free stable balance
@@ -191,21 +207,24 @@ class ArbitrageSvc(BaseSvc):
         except TimeoutError as err:
             self.logger.error(err)
             order = await self.safe_cancel_order(order=order)
+            if not self._binance._is_order_canceled(order=order):
+                return await self._binance.wait_order_filled(
+                    order=order,
+                    max_wait_time=settings.ORDER_MAX_WAIT_TIMES[2],
+                )
 
             self.logger.info("Refreshing price...")
             depth = await self._depths_crud.get(symbol)
-            return await self._sell_alt(
-                proffit=proffit,
-                price=depth.asks[0][0]
-            )
+            return await self._sell_alt(proffit=proffit, price=depth.asks[0][0])
 
-    async def _sell_strong(self,
+    async def _sell_strong(
+        self,
         proffit: Proffit,
         price: Optional[float] = None,
     ) -> Dict[str, Any]:
         available = await self._binance.wait_balance_released(proffit.strong)
         symbol = f"{proffit.strong}{proffit.stable}"
-        
+
         best_price = float(proffit.prices[2])
         if not price:
             depth = await self._depths_crud.get(symbol)
@@ -232,12 +251,16 @@ class ArbitrageSvc(BaseSvc):
         except TimeoutError as err:
             self.logger.error(err)
             order = await self.safe_cancel_order(order=order)
-            
+            if not self._binance._is_order_canceled(order=order):
+                return await self._binance.wait_order_filled(
+                    order=order,
+                    max_wait_time=settings.ORDER_MAX_WAIT_TIMES[2],
+                )
+
             self.logger.info("Refreshing price...")
             depth = await self._depths_crud.get(symbol)
             return await self._sell_strong(
-                proffit=proffit,
-                price=depth.asks[0][0]
+                proffit=proffit, price=depth.asks[0][0]
             )
 
     async def _calc_proffit(

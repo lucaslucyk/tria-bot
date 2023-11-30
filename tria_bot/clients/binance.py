@@ -1,4 +1,5 @@
 from asyncio import sleep
+import asyncio
 import inspect
 from pathlib import Path
 from typing import (
@@ -31,7 +32,7 @@ class SymbolSizeException(Exception):
 
 class Decorators:
     @staticmethod
-    def retry_for_errors(*errors, max_retries: int = 2):
+    def retry_for_errors(*errors, max_retries: int = 3):
         def decorator(func):
             async def wrapper(*args, **kwargs):
                 for _ in range(max_retries + 1):
@@ -40,6 +41,7 @@ class Decorators:
                     except BinanceAPIException as err:
                         if err.code not in errors:
                             raise
+                    await asyncio.sleep(.5)
                 raise Exception(f"Max retries ({max_retries}) reached.")
 
             return wrapper
@@ -136,9 +138,9 @@ class AsyncClient(BinanceAsyncClient):
         )
         return response.get("symbols", [])
 
-    @Decorators.retry_for_errors(-2011)
-    async def cancel_order(self, **params):
-        return await super().cancel_order(**params)
+    # @Decorators.retry_for_errors(-2011)
+    # async def cancel_order(self, **params):
+    #     return await super().cancel_order(**params)
 
     async def get_assets_balance(
         self,
