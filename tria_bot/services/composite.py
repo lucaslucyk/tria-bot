@@ -17,6 +17,7 @@ from tria_bot.helpers.utils import async_filter, create_logger
 from tria_bot.models.composite import TopVolumeAssets, Symbol, ValidSymbols
 from tria_bot.clients.composite import AsyncClient
 from tria_bot.clients.binance import AsyncClient as BinanceClient
+from tria_bot.schemas.message import TopVolumeMessage
 
 
 class SocketErrorDetail(BaseModel):
@@ -33,7 +34,7 @@ class CompositeSvc:
     model = TopVolumeAssets
     symbol_model = Symbol
     valid_symbols_model = ValidSymbols
-    TOP_VOLUME_CHANGE_EVENT = "top-volume-change"
+    top_volume_change_event = "top-volume-change"
 
     def __init__(self, *args, **kwargs) -> None:
         self._uid = uuid1()
@@ -97,10 +98,17 @@ class CompositeSvc:
 
         msg = f"Top volume assets change from {old} to {new}"
         self.logger.info(msg)
-        data = {"event": self.TOP_VOLUME_CHANGE_EVENT, "old": old, "new": new}
+        #data = {"event": self.top_volume_change_event, "old": old, "new": new}
+        data = TopVolumeMessage(
+            event=self.top_volume_change_event,
+            data={
+                "old": old,
+                "new": new
+            }
+        )
         await self._redis_conn.publish(
             settings.PUBSUB_TOP_VOLUME_CHANNEL,
-            orjson.dumps(data),
+            orjson.dumps(data.model_dump()),
         )
 
     @staticmethod

@@ -22,6 +22,8 @@ class Binance:
         Convert the given float to a string,
         without resorting to scientific notation
         """
+        # ensure float
+        x = float(x)
         self._context.prec = precision
         d1 = self._context.create_decimal(repr(x))
         return format(d1, "f")

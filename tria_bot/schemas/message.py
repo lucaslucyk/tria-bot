@@ -13,3 +13,7 @@ class ProffitMessage(RedisMessage):
 
 class GapsMessage(RedisMessage):
     data: List[Dict[str, Any]]
+
+
+class TopVolumeMessage(RedisMessage):
+    data: Dict[str, Any]

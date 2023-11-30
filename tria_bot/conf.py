@@ -1,8 +1,14 @@
+from typing import Tuple
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     USE_STABLE_ASSET: str = "USDT"
+
+    # operating
+    INVESTMENT_MULTIPLIER: float = .8
+
+    ORDER_MAX_WAIT_TIMES: Tuple[float, float, float] = (30.0, 300.0, 420.0)
 
     # exchange
     EXCHANGE_FEE: float = .001

@@ -54,7 +54,7 @@ class ProffitSvc(BaseSvc):
         self._symbols_info_crud = None
         self._valid_symbols = None
         self._symbols_info = None
-
+        self._binance_helper = None
         self._is_running = True
 
     async def _get_top_volume_assets(self) -> TopVolumeAssets:

@@ -1,8 +1,10 @@
 from asyncio import sleep
+import inspect
 from pathlib import Path
 from typing import (
     Any,
     AsyncGenerator,
+    Callable,
     Dict,
     Generator,
     Iterable,
@@ -84,7 +86,7 @@ class AsyncClient(BinanceAsyncClient):
             private_key_pass,
         )
         # self._symbols = SymbolsInfo(symbols=symbols or [])
-        self._binance_helper = BinanceHelper(symbols=symbols)
+        self._helper = BinanceHelper(symbols=symbols)
 
     async def __aenter__(self) -> "AsyncClient":
         return self
@@ -219,7 +221,7 @@ class AsyncClient(BinanceAsyncClient):
             )
         return float(balance.get("free", "0.0"))
 
-    def _is_order_cancelled(self, order: Dict[str, Any]) -> bool:
+    def _is_order_canceled(self, order: Dict[str, Any]) -> bool:
         return order.get("status", "").upper() in (
             self.ORDER_STATUS_CANCELED,
             self.ORDER_STATUS_PENDING_CANCEL,
@@ -228,12 +230,13 @@ class AsyncClient(BinanceAsyncClient):
     def _is_order_filled(self, order: Dict[str, Any]) -> bool:
         return order.get("status", "") == self.ORDER_STATUS_FILLED
 
-    async def wait_order_filled(
+    async def wait_order_condition(
         self,
         order: Dict[str, Any],
+        conditions: Sequence[Callable],
         max_wait_time: float,
-        start_time: Optional[float] = None,
         retry_time: float = 1.0,
+        start_time: Optional[float] = None,
     ) -> Dict[str, Any]:
         start_time = start_time or time()
         if time() - start_time >= max_wait_time:
@@ -242,22 +245,52 @@ class AsyncClient(BinanceAsyncClient):
         order_id = order.get("orderId")
         symbol = order.get("symbol")
 
-        if self._is_order_filled(order) or self._is_order_cancelled(order):
-            return order
+        for condition in conditions:
+            result = condition(order)
+            if inspect.isawaitable(result):
+                result = await result
+            if bool(result):
+                return order
 
         await sleep(retry_time)
         updated_order = await self.get_order(symbol=symbol, orderId=order_id)
-        return await self.wait_order_filled(
+        return await self.wait_order_condition(
             order=updated_order,
+            conditions=conditions,
             max_wait_time=max_wait_time,
+            retry_time=retry_time,
             start_time=start_time,
+        )
+
+    async def wait_order_filled(
+        self,
+        order: Dict[str, Any],
+        max_wait_time: float,
+        retry_time: float = 1.0,
+    ) -> Dict[str, Any]:
+        return await self.wait_order_condition(
+            order=order,
+            conditions=[self._is_order_filled, self._is_order_canceled],
+            max_wait_time=max_wait_time,
+            retry_time=retry_time,
+        )
+
+    async def wait_order_canceled(
+        self,
+        order: Dict[str, Any],
+        max_wait_time: float,
+        retry_time: float = 1.0,
+    ) -> Dict[str, Any]:
+        return await self.wait_order_condition(
+            order=order,
+            conditions=[self._is_order_canceled],
+            max_wait_time=max_wait_time,
             retry_time=retry_time,
         )
 
     async def limit_buy_asset(
         self,
-        target_asset: str,
-        source_asset: str,
+        symbol: str,
         price: float,
         quantity: Optional[float] = None,
         ammount: Optional[float] = None,
@@ -267,17 +300,16 @@ class AsyncClient(BinanceAsyncClient):
         if quantity and ammount:
             raise ValueError("Must specify only one quantity or ammount")
 
-        symbol = f"{target_asset}{source_asset}"
-        to_buy = self._binance_helper.apply_step_size(
+        to_buy = self._helper.apply_step_size(
             symbol=symbol,
             value=quantity or (ammount / price),
         )
-        to_buy = self._binance_helper._ffp(x=to_buy)
+        to_buy = self._helper._ffp(x=to_buy)
 
-        exchange_price = self._binance_helper.apply_tick_size(
+        exchange_price = self._helper.apply_tick_size(
             symbol=symbol, value=price
         )
-        exchange_price = self._binance_helper._ffp(x=exchange_price)
+        exchange_price = self._helper._ffp(x=exchange_price)
         return await self.order_limit_buy(
             symbol=symbol,
             quantity=to_buy,
@@ -286,20 +318,16 @@ class AsyncClient(BinanceAsyncClient):
 
     async def limit_sell_asset(
         self,
-        source_asset: str,
-        target_asset: str,
+        symbol: str,
         price: float,
         quantity: Optional[float] = None,
     ) -> Dict[str, Any]:
-        symbol = f"{target_asset}{source_asset}"
-        to_sell = self._binance_helper.apply_step_size(
-            symbol=symbol, value=quantity
-        )
-        to_sell = self._binance_helper._ffp(x=to_sell)
-        exchange_price = self._binance_helper.apply_tick_size(
+        to_sell = self._helper.apply_step_size(symbol=symbol, value=quantity)
+        to_sell = self._helper._ffp(x=to_sell)
+        exchange_price = self._helper.apply_tick_size(
             symbol=symbol, value=price
         )
-        exchange_price = self._binance_helper._ffp(x=exchange_price)
+        exchange_price = self._helper._ffp(x=exchange_price)
 
         return await self.order_limit_sell(
             symbol=symbol,
