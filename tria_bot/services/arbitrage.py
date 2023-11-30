@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Any, AsyncGenerator, Dict, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, Optional, Tuple, Union
 import anyio
 
 import orjson
@@ -15,7 +15,7 @@ from tria_bot.models.composite import Symbol, TopVolumeAssets
 
 # from tria_bot.models.proffit import Proffit
 from tria_bot.schemas.proffit import Proffit
-from tria_bot.schemas.message import ProffitMessage
+from tria_bot.schemas.message import MultiProffitMessage, ProffitMessage
 from tria_bot.services.base import BaseSvc
 from tria_bot.conf import settings
 
@@ -26,6 +26,7 @@ class TopVolumeChangeError(Exception):
 
 class ArbitrageSvc(BaseSvc):
     proffit_channel = settings.PUBSUB_PROFFIT_CHANNEL
+    multi_proffit_channel = settings.PUBSUB_MULTI_PROFFIT_CHANNEL
     top_volume_channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
 
     def __init__(self, *args, **kwargs) -> None:
@@ -88,13 +89,17 @@ class ArbitrageSvc(BaseSvc):
             # yield symbol.symbol, symbol
             yield await self._symbols_info_crud.get(pk)
 
-    async def get_proffit(self) -> ProffitMessage:
+    async def get_proffit(self) -> Union[ProffitMessage, MultiProffitMessage]:
         proffit = None
         async with self._redis_conn.pubsub(
             ignore_subscribe_messages=True
         ) as ps:
-            await ps.subscribe(self.proffit_channel, self.top_volume_channel)
-            self.logger.info(f"Subscribed to {self.proffit_channel}")
+            await ps.subscribe(
+                self.proffit_channel,
+                self.multi_proffit_channel,
+                self.top_volume_channel,
+            )
+            self.logger.info(f"Subscribed to proffit channels")
 
             async for msg in ps.listen():
                 if msg != None:
@@ -102,9 +107,13 @@ class ArbitrageSvc(BaseSvc):
                         await ps.unsubscribe()
                         raise TopVolumeChangeError()
 
-                    proffit = ProffitMessage(
-                        **orjson.loads(msg["data"].encode())
-                    )
+                    data = orjson.loads(msg["data"].encode())
+                    if msg["channel"] == self.proffit_channel:
+                        proffit = ProffitMessage(**data)
+
+                    if msg["channel"] == self.multi_proffit_channel:
+                        proffit = MultiProffitMessage(**data)
+
                     await ps.unsubscribe()
                     break
                 # await asyncio.sleep(.001)
@@ -309,6 +318,9 @@ class ArbitrageSvc(BaseSvc):
     async def loop(self):
         try:
             proffit = await self.get_proffit()
+            if isinstance(proffit, MultiProffitMessage):
+                proffit = max(proffit, key=lambda x: x.get("value", 0.0))
+
             await self.arbitrate(proffit=Proffit(**proffit.data))
             await asyncio.sleep(0.01)
             return await self.loop()

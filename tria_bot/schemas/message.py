@@ -11,6 +11,10 @@ class RedisMessage(BaseModel):
 class ProffitMessage(RedisMessage):
     data: Dict[str, Any]
 
+
+class MultiProffitMessage(RedisMessage):
+    data: List[Dict[str, Any]]
+
 class GapsMessage(RedisMessage):
     data: List[Dict[str, Any]]
 

@@ -1,6 +1,7 @@
+from ast import List
 import asyncio
 import time
-from typing import AsyncGenerator, Tuple
+from typing import AsyncGenerator, Iterable, Sequence, Tuple
 from binance.helpers import round_step_size
 import orjson
 from tria_bot.conf import settings
@@ -9,11 +10,18 @@ from tria_bot.helpers.binance import Binance as BinanceHelper
 from tria_bot.helpers.symbols import all_combos, STRONG_ASSETS
 from tria_bot.models.composite import Symbol, TopVolumeAssets, ValidSymbols
 from tria_bot.models.depth import Depth
-from tria_bot.models.gap import Gap
+
+# from tria_bot.models.gap import Gap
+from tria_bot.schemas.gap import Gap
+
 # from tria_bot.models.proffit import Proffit
 from tria_bot.schemas.proffit import Proffit
 from tria_bot.models.ticker import Ticker
-from tria_bot.schemas.message import ProffitMessage
+from tria_bot.schemas.message import (
+    GapsMessage,
+    MultiProffitMessage,
+    ProffitMessage,
+)
 from tria_bot.services.base import BaseSvc
 from tria_bot.crud.composite import (
     SymbolsCRUD,
@@ -25,13 +33,17 @@ from tria_bot.crud.proffits import ProffitsCRUD
 from aredis_om import NotFoundError, Migrator
 
 
+class TopVolumeChangeError(Exception):
+    ...
+
+
 class ProffitSvc(BaseSvc):
     tva_model = TopVolumeAssets
     tickers_model = Ticker
     depths_model = Depth
     # proffit_model = Proffit
     proffit_model = Proffit
-    gap_model = Gap
+    # gap_model = Gap
     symbol_model = Symbol
     valid_symbols_model = ValidSymbols
     stable = settings.USE_STABLE_ASSET
@@ -42,6 +54,7 @@ class ProffitSvc(BaseSvc):
     calc_index = settings.PROFFIT_INDEX
     proffit_percent_format = settings.PROFFIT_PERCENT_FORMAT
     top_volume_channel = settings.PUBSUB_TOP_VOLUME_CHANNEL
+    gaps_channel = settings.PUBSUB_GAPS_CHANNEL
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -153,6 +166,87 @@ class ProffitSvc(BaseSvc):
     def _is_valid_symbol(self, symbol: str) -> bool:
         return symbol in self._valid_symbols.symbols
 
+    async def get_gaps(self) -> GapsMessage:
+        gaps = None
+        async with self._redis_conn.pubsub(
+            ignore_subscribe_messages=True
+        ) as ps:
+            await ps.subscribe(self.gaps_channel, self.top_volume_channel)
+            self.logger.info(f"Subscribed to {self.gaps_channel}")
+
+            async for msg in ps.listen():
+                if msg != None:
+                    if msg["channel"] == self.top_volume_channel:
+                        await ps.unsubscribe()
+                        raise TopVolumeChangeError()
+
+                    gaps = GapsMessage(**orjson.loads(msg["data"].encode()))
+                    await ps.unsubscribe()
+                    break
+                # await asyncio.sleep(.001)
+
+        return gaps
+
+    async def get_depths(self, *symbols):
+        for symbol in symbols:
+            yield await self._depths_crud.get(symbol)
+
+    async def strict_calc_proffits(self, gaps: Iterable[Gap]):
+        for gap in gaps:
+            try:
+                alt_stable_symbol = f"{gap.alt}{gap.stable}"
+                alt_strong_symbol = f"{gap.alt}{gap.strong}"
+                strong_stable_symbol = f"{gap.strong}{gap.stable}"
+
+                depths = [
+                    depth
+                    async for depth in self.get_depths(
+                        alt_stable_symbol,
+                        alt_strong_symbol,
+                        strong_stable_symbol,
+                    )
+                ]
+                proffit = self.calc_proffit(
+                    alt_stable_depth=depths[0],
+                    alt_strong_depth=depths[1],
+                    strong_stable_depth=depths[2],
+                    ammount=100,
+                )
+                if proffit > self.min_proffit_detect:
+                    yield self.proffit_model(
+                        alt=gap.alt,
+                        strong=gap.strong,
+                        stable=gap.stable,
+                        value=proffit,
+                        prices=(
+                            depths[0].bids[self.calc_index][0],
+                            depths[1].asks[self.calc_index][0],
+                            depths[2].asks[self.calc_index][0],
+                        ),
+                    )
+
+            except NotFoundError:
+                continue
+
+    async def strict_loop(self):
+        try:
+            gaps = await self.get_gaps()
+            self.logger.info("Gaps detected! Calculating proffits...")
+            proffits = [
+                proffit
+                async for proffit in self.strict_calc_proffits(
+                    gaps=(Gap(**g) for g in gaps.data)
+                )
+            ]
+            if proffits:
+                self.logger.info("Potential proffits detected!")
+                await self.publish_proffits(proffits=proffits)
+            await asyncio.sleep(0.01)
+            return await self.strict_loop()
+        except TopVolumeChangeError:
+            self.logger.info("Top volume has change. Stopping service...")
+            pass
+
     async def calc_proffits(self):
         # TODO: do this parallel
         for stg in STRONG_ASSETS:
@@ -198,25 +292,33 @@ class ProffitSvc(BaseSvc):
                             prices=(
                                 alt_stable.bids[self.calc_index][0],
                                 alt_strong.asks[self.calc_index][0],
-                                strong_stable.asks[self.calc_index][0]
-                            )
+                                strong_stable.asks[self.calc_index][0],
+                            ),
                         )
                 except NotFoundError:
                     continue
+
+    async def publish_proffits(self, proffits: Sequence[Proffit]):
+        msg = MultiProffitMessage(
+            event=self.proffit_event, data=[p.model_dump() for p in proffits]
+        )
+        await self._redis_conn.publish(
+            settings.PUBSUB_MULTI_PROFFIT_CHANNEL,
+            orjson.dumps(msg.model_dump()),
+        )
 
     async def publish_proffit(self, proffit: Proffit) -> None:
         msg = ProffitMessage(
             # timestamp=int(time.time_ns() / 1000000),
             event=self.proffit_event,
-            data=proffit.model_dump()
+            data=proffit.model_dump(),
         )
         # data = {"event": self.proffit_event, "data": proffit.dict()}
         await self._redis_conn.publish(
             settings.PUBSUB_PROFFIT_CHANNEL,
             # orjson.dumps(data),
-            orjson.dumps(msg.model_dump())
+            orjson.dumps(msg.model_dump()),
         )
-
 
     async def proffit_loop(self):
         while self._is_running:
@@ -227,8 +329,12 @@ class ProffitSvc(BaseSvc):
             # await self._proffits_crud.add(proffits)
 
     @classmethod
-    async def start(cls) -> None:
+    async def start(cls, strict: bool) -> None:
         while True:
             async with cls() as svc:
-                svc.logger.info("Starting service...")
-                await asyncio.gather(svc.proffit_loop(), svc.ps_subscribe())
+                if strict:
+                    svc.logger.info("Starting service with strict mode...")
+                    await svc.strict_loop()
+                else:
+                    svc.logger.info("Starting service...")
+                    await asyncio.gather(svc.proffit_loop(), svc.ps_subscribe())

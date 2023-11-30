@@ -1,9 +1,10 @@
 import asyncio
-from tria_bot.services.proffit import ProffitSvc
+import anyio
 
 
 async def main(strict: bool):
-    await ProffitSvc.start(strict=strict)
+    await asyncio.sleep(1)
+    print("strict", strict)
 
 
 if __name__ == "__main__":
@@ -15,6 +16,5 @@ if __name__ == "__main__":
         type=bool,
         default=False,
         action=argparse.BooleanOptionalAction,
-        help="Use gaps to calc proffits",
     )
     asyncio.run(main(**vars(parser.parse_args())))
