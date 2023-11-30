@@ -114,8 +114,7 @@ class GapCalculatorSvc(BaseSvc):
 
     async def publish_gaps(self, gaps: Sequence[Gap]) -> None:
         msg = GapsMessage(
-            event=self.gaps_event,
-            data=[g.model_dump() for g in gaps]
+            event=self.gaps_event, data=[g.model_dump() for g in gaps]
         )
         await self._redis_conn.publish(
             settings.PUBSUB_GAPS_CHANNEL, orjson.dumps(msg.model_dump())
@@ -134,10 +133,13 @@ class GapCalculatorSvc(BaseSvc):
             if gaps:
                 # await self._gaps_crud.add(models=gaps)
                 await self.publish_gaps(gaps=gaps)
+                await asyncio.sleep(0.5)
 
     @classmethod
     async def start(cls):
         while True:
             async with cls() as svc:
-                svc.logger.info("Starting service...")
+                svc.logger.info(
+                    f"Starting service with GAP_MIN={settings.GAP_MIN}..."
+                )
                 await asyncio.gather(svc.gaps_loop(), svc.ps_subscribe())

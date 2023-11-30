@@ -87,9 +87,11 @@ class ArbitrageSvc(BaseSvc):
         for pk in self._valid_symbols.symbols:
             # symbol = await self._symbols_info_crud.get(pk)
             # yield symbol.symbol, symbol
-            yield await self._symbols_info_crud.get(pk)
+            yield await self._symbols_info_crud.wait_for(pk)
 
-    async def get_proffit(self) -> Union[ProffitMessage, MultiProffitMessage]:
+    async def get_proffit(
+        self,
+    ) -> Union[ProffitMessage, MultiProffitMessage]:
         proffit = None
         async with self._redis_conn.pubsub(
             ignore_subscribe_messages=True
@@ -114,9 +116,9 @@ class ArbitrageSvc(BaseSvc):
                     if msg["channel"] == self.multi_proffit_channel:
                         proffit = MultiProffitMessage(**data)
 
-                    await ps.unsubscribe()
-                    break
-                # await asyncio.sleep(.001)
+                    # await ps.unsubscribe()
+                    # break
+                await asyncio.sleep(0.001)
 
         return proffit
 
@@ -288,7 +290,7 @@ class ArbitrageSvc(BaseSvc):
 
     async def arbitrate(self, proffit: Proffit) -> None:
         self.logger.info(f"Arbitrating with {proffit}")
-
+        
         # 1. buy alt asset
         alt_buy_order = await self._buy_alt(proffit=proffit)
         if self._binance._is_order_canceled(order=alt_buy_order):
@@ -317,11 +319,26 @@ class ArbitrageSvc(BaseSvc):
 
     async def loop(self):
         try:
+            # proffit = None
+            # async for proffit_ in self.get_proffit():
+            #     if isinstance(proffit_, MultiProffitMessage):
+            #         proffit = max(
+            #             proffit_.data,
+            #             key=lambda x: x.get("value", 0.0),
+            #         )
+            #     else:
+            #         proffit = proffit_.data
+            #     break
             proffit = await self.get_proffit()
             if isinstance(proffit, MultiProffitMessage):
-                proffit = max(proffit, key=lambda x: x.get("value", 0.0))
-
-            await self.arbitrate(proffit=Proffit(**proffit.data))
+                proffit = max(
+                    proffit.data,
+                    key=lambda x: x.get("value", 0.0),
+                )
+            else:
+                proffit = proffit.data
+                
+            await self.arbitrate(proffit=Proffit(**proffit))
             await asyncio.sleep(0.01)
             return await self.loop()
         except TopVolumeChangeError:

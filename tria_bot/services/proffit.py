@@ -79,7 +79,7 @@ class ProffitSvc(BaseSvc):
         for pk in self._valid_symbols.symbols:
             # symbol = await self._symbols_info_crud.get(pk)
             # yield symbol.symbol, symbol
-            yield await self._symbols_info_crud.get(pk)
+            yield await self._symbols_info_crud.wait_for(pk)
 
     async def _get_valid_symbols(self):
         return await self._valid_symbols_crud.wait_for(
@@ -183,21 +183,23 @@ class ProffitSvc(BaseSvc):
                     gaps = GapsMessage(**orjson.loads(msg["data"].encode()))
                     await ps.unsubscribe()
                     break
-                # await asyncio.sleep(.001)
-
-        return gaps
+                await asyncio.sleep(0.001)
+            return gaps
 
     async def get_depths(self, *symbols):
         for symbol in symbols:
-            yield await self._depths_crud.get(symbol)
+            s = await self._depths_crud.get(symbol)
+            yield s
 
-    async def strict_calc_proffits(self, gaps: Iterable[Gap]):
+    async def strict_calc_proffits(
+        self, gaps: Iterable[Gap]
+    ) -> AsyncGenerator[Proffit, None]:
         for gap in gaps:
-            try:
-                alt_stable_symbol = f"{gap.alt}{gap.stable}"
-                alt_strong_symbol = f"{gap.alt}{gap.strong}"
-                strong_stable_symbol = f"{gap.strong}{gap.stable}"
+            alt_stable_symbol = f"{gap.alt}{gap.stable}"
+            alt_strong_symbol = f"{gap.alt}{gap.strong}"
+            strong_stable_symbol = f"{gap.strong}{gap.stable}"
 
+            try:
                 depths = [
                     depth
                     async for depth in self.get_depths(
@@ -206,46 +208,48 @@ class ProffitSvc(BaseSvc):
                         strong_stable_symbol,
                     )
                 ]
-                proffit = self.calc_proffit(
-                    alt_stable_depth=depths[0],
-                    alt_strong_depth=depths[1],
-                    strong_stable_depth=depths[2],
-                    ammount=100,
-                )
-                if proffit > self.min_proffit_detect:
-                    yield self.proffit_model(
-                        alt=gap.alt,
-                        strong=gap.strong,
-                        stable=gap.stable,
-                        value=proffit,
-                        prices=(
-                            depths[0].bids[self.calc_index][0],
-                            depths[1].asks[self.calc_index][0],
-                            depths[2].asks[self.calc_index][0],
-                        ),
-                    )
-
+                # self.logger.info(f"depths is {depths}")
             except NotFoundError:
                 continue
 
+            proffit = self.calc_proffit(
+                alt_stable_depth=depths[0],
+                alt_strong_depth=depths[1],
+                strong_stable_depth=depths[2],
+                ammount=100,
+            )
+            if proffit > self.min_proffit_detect:
+                yield self.proffit_model(
+                    alt=gap.alt,
+                    strong=gap.strong,
+                    stable=gap.stable,
+                    value=proffit,
+                    prices=(
+                        depths[0].bids[self.calc_index][0],
+                        depths[1].asks[self.calc_index][0],
+                        depths[2].asks[self.calc_index][0],
+                    ),
+                )
+
     async def strict_loop(self):
         try:
-            gaps = await self.get_gaps()
-            self.logger.info("Gaps detected! Calculating proffits...")
+            gaps_message = await self.get_gaps()
+            gaps = [Gap(**g) for g in gaps_message.data]
             proffits = [
                 proffit
-                async for proffit in self.strict_calc_proffits(
-                    gaps=(Gap(**g) for g in gaps.data)
-                )
+                async for proffit in self.strict_calc_proffits(gaps=gaps)
             ]
             if proffits:
                 self.logger.info("Potential proffits detected!")
                 await self.publish_proffits(proffits=proffits)
-            await asyncio.sleep(0.01)
+            # else:
+            #     self.logger.info("No proffits with inner gaps")
+
+            await asyncio.sleep(0.5)
             return await self.strict_loop()
         except TopVolumeChangeError:
             self.logger.info("Top volume has change. Stopping service...")
-            pass
+            # pass
 
     async def calc_proffits(self):
         # TODO: do this parallel
