@@ -1,7 +1,9 @@
 # models.py
-from typing import List
+from decimal import Decimal
+from typing import List, Literal, Union
 from aredis_om import Field
 from tria_bot.models.base import JsonModelBase
+from binance.helpers import round_step_size
 
 
 class TopVolumeAsset(JsonModelBase):
@@ -51,3 +53,9 @@ class Symbol(JsonModelBase):
     class Meta:
         model_key_prefix = "Symbol"
         global_key_prefix = "tria_bot"
+
+    def apply_step_size(self, value: Union[float, Decimal, str]) -> float:
+        return round_step_size(quantity=value, step_size=float(self.step_size))
+
+    def apply_tick_size(self, value: Union[float, Decimal, str]) -> float:
+        return round_step_size(quantity=value, step_size=float(self.tick_size))
