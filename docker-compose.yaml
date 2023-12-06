@@ -3,7 +3,7 @@ version: '3.7'
 
 services:
   tria-redis:
-    # image: redis/redis-stack
+    # image: redis/redis-stack-server
     image: redis/redis-stack
     container_name: tria-redis
     # command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]  # disable persistence
@@ -133,6 +133,7 @@ services:
       dockerfile: Dockerfile
     container_name: tria-proffit
     command: ["poetry", "run", "python", "tria_bot/proffit.py", "--strict"]
+    # command: ["poetry", "run", "python", "tria_bot/proffit.py", "--no-strict"]
     env_file:
       - .env
     restart: "on-failure"
