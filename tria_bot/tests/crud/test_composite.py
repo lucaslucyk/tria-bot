@@ -1,9 +1,9 @@
 # type: ignore
 
 import asyncio
-import os
 import pytest
 import pytest_asyncio
+from typing import Generator, Any
 
 # We need to run this check as sync code (during tests) even in async mode
 # because we call it in the top-level module scope.
@@ -22,11 +22,9 @@ if not has_redis_json():
     pytestmark = pytest.mark.skip
 
 
-@pytest.fixture()
-def symbol():
-    # TODO: change this to yield crud.symbols.model(...)
-    # to ensure model._meta.database connection
-    yield Symbol(
+@pytest.fixture(scope="session")
+def symbol(crud) -> Generator[Symbol, Any, None]:
+    yield crud.symbols.model(
         symbol="FAKESYMBOL",
         base_asset="FAKE",
         quote_asset="SYMBOL",
@@ -43,11 +41,10 @@ def symbol():
     )
 
 
-@pytest.fixture()
-def symbols():
-    # TODO: change this to yield crud.symbols.model(...)
-    # to ensure model._meta.database connection
-    s1 = Symbol(
+@pytest.fixture(scope="session")
+def symbols(crud) -> Generator[tuple[Symbol, Symbol], Any, None]:
+    Model = crud.symbols.model
+    s1 = Model(
         symbol="FAKESYMBOL1",
         base_asset="FAKE",
         quote_asset="SYMBOL1",
@@ -63,7 +60,7 @@ def symbols():
         status="TRADING",
     )
 
-    s2 = Symbol(
+    s2 = Model(
         symbol="FAKESYMBOL2",
         base_asset="FAKE",
         quote_asset="SYMBOL2",
@@ -81,22 +78,16 @@ def symbols():
     yield s1, s2
 
 
-@pytest.fixture()
-def top_volume_assets():
-    # TODO: change this to yield crud.top_volume_assets.model(...)
-    # to ensure model._meta.database connection
-    yield TopVolumeAssets(
-        pk=TopVolumeAssets.Meta.PK_VALUE, assets=["FAKE1", "FAKE2", "FAKE3"]
-    )
+@pytest.fixture(scope="session")
+def top_volume_assets(crud) -> Generator[TopVolumeAssets, Any, None]:
+    Model = crud.top_volume_assets.model
+    yield Model(pk=Model.Meta.PK_VALUE, assets=["FAKE1", "FAKE2", "FAKE3"])
 
 
-@pytest.fixture()
-def valid_symbols():
-    # TODO: change this to yield crud.valid_symbols.model(...)
-    # to ensure model._meta.database connection
-    yield ValidSymbols(
-        pk=ValidSymbols.Meta.PK_VALUE, symbols=["FAKE1", "FAKE2", "FAKE3"]
-    )
+@pytest.fixture(scope="session")
+def valid_symbols(crud) -> Generator[ValidSymbols, Any, None]:
+    Model = crud.valid_symbols.model
+    yield Model(pk=Model.Meta.PK_VALUE, symbols=["FAKE1", "FAKE2", "FAKE3"])
 
 
 @pytest_mark_asyncio

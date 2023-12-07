@@ -1,23 +1,42 @@
 import asyncio
 from collections import namedtuple
+from typing import Any, Generator
 from dotenv import load_dotenv
 import pytest
 
-from aredis_om import get_redis_connection, Migrator
+from aredis_om import get_redis_connection, Migrator, redis
 import pytest_asyncio
 
-from tria_bot.crud.composite import (
+from tria_bot.crud import (
     SymbolsCRUD,
     TopVolumeAssetsCRUD as TvaCRUD,
     ValidSymbolsCRUD as VsCRUD,
+    DepthsCRUD,
+    GapsCRUD,
+    ProffitsCRUD,
+    TickersCRUD,
 )
 
-load_dotenv('test.env')
+load_dotenv("test.env")
 
 
 # TEST_PREFIX = "tria-bot:testing"
 GLOBAL_PREFIX = "tria_bot"
 REDIS_URL = "redis://localhost:6379?decode_responses=True"
+
+from dataclasses import dataclass
+
+
+@dataclass
+class CRUDFixture:
+    symbols: SymbolsCRUD
+    top_volume_assets: TvaCRUD
+    valid_symbols: VsCRUD
+    depths: DepthsCRUD
+    gaps: GapsCRUD
+    proffits: ProffitsCRUD
+    tickers: TickersCRUD
+
 
 pytest_mark_asyncio = pytest.mark.asyncio
 
@@ -41,27 +60,21 @@ def event_loop(request):
 
 
 @pytest.fixture(scope="session")
-def environ():
-    load_dotenv('.env')
-
-
-
-@pytest.fixture(scope="session")
-def redis():
+def redis() -> Generator[redis.Redis, Any, None]:
     yield get_redis_connection(url=REDIS_URL)
 
 
 @pytest.fixture(scope="session")
-def crud(redis):
-    symbols = SymbolsCRUD(conn=redis)
-    tva = TvaCRUD(conn=redis)
-    vs = VsCRUD(conn=redis)
-
-    # prepare namedtuple
-    _names = ["symbols", "top_volume_assets", "valid_symbols"]
-    _objs = (symbols, tva, vs)
-
-    return namedtuple("crud", _names)(*_objs)
+def crud(redis) -> CRUDFixture:
+    return CRUDFixture(
+        symbols=SymbolsCRUD(conn=redis),
+        top_volume_assets=TvaCRUD(conn=redis),
+        valid_symbols=VsCRUD(conn=redis),
+        depths=DepthsCRUD(conn=redis),
+        gaps=GapsCRUD(conn=redis),
+        proffits=ProffitsCRUD(conn=redis),
+        tickers=TickersCRUD(conn=redis),
+    )
 
 
 def _delete_test_keys(prefix: str, conn):
