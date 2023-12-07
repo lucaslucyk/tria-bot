@@ -1,6 +1,6 @@
 [run]
 source = tria_bot
-omit = tria_bot/tests/*.py, tria_bot/version.py
+omit = tria_bot/tests/*, tria_bot/version.py
 
 [report]
 exclude_lines =
