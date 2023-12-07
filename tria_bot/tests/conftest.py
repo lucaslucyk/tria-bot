@@ -1,5 +1,6 @@
 import asyncio
 from collections import namedtuple
+from dotenv import load_dotenv
 import pytest
 
 from aredis_om import get_redis_connection, Migrator
@@ -10,6 +11,8 @@ from tria_bot.crud.composite import (
     TopVolumeAssetsCRUD as TvaCRUD,
     ValidSymbolsCRUD as VsCRUD,
 )
+
+load_dotenv('test.env')
 
 
 # TEST_PREFIX = "tria-bot:testing"
@@ -35,6 +38,12 @@ def event_loop(request):
     finally:
         if loop != None:
             loop.close()
+
+
+@pytest.fixture(scope="session")
+def environ():
+    load_dotenv('.env')
+
 
 
 @pytest.fixture(scope="session")

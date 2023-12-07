@@ -1,11 +1,9 @@
 import asyncio
-from redis.asyncio.client import Redis
 from abc import ABC, abstractproperty
 from typing import (
     Any,
     AsyncGenerator,
     Generic,
-    Iterable,
     Optional,
     Sequence,
     Type,
@@ -20,22 +18,6 @@ from pydantic import BaseModel
 ModelType = TypeVar("ModelType", bound=RedisModel)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
-
-
-class Decorators:
-    @staticmethod
-    def use_connection(name: str):
-        def decorator(func):
-            async def wrapper(crud: "CRUDBase", *args, **kwargs):
-                conn = kwargs.pop(name, None)
-                if conn != None:
-                    crud.model.Meta.database = conn
-                    crud.model._meta.database = conn
-                return await func(crud, *args, **kwargs)
-
-            return wrapper
-
-        return decorator
 
 
 class CRUDBase(Generic[ModelType], ABC):
@@ -53,11 +35,8 @@ class CRUDBase(Generic[ModelType], ABC):
         self.model._meta.database = self._conn
 
     async def __aenter__(self) -> "CRUDBase":
-        if self._conn == None:
-            self._conn = get_redis_connection()
         return self
 
-    
     async def __aexit__(
         self,
         exc_type: Optional[Any] = None,
@@ -66,7 +45,6 @@ class CRUDBase(Generic[ModelType], ABC):
     ) -> None:
         if self._conn != None:
             await self._conn.close()
-
 
     async def save(self, obj: ModelType):
         return await obj.save()
