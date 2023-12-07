@@ -1,0 +1,8 @@
+[run]
+source = tria_bot
+omit = tria_bot/tests/*.py, tria_bot/version.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    @abstract

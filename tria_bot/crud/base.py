@@ -91,11 +91,12 @@ class CRUDBase(Generic[ModelType], ABC):
             return await self.wait_for(pk=pk)
 
     async def all_pks(self) -> AsyncGenerator[Any, None]:
-        async for pk in self.model.all_pks():
+        # ag = await self.model.all_pks()
+        async for pk in await self.model.all_pks():
             yield pk
 
     async def get_all(self) -> AsyncGenerator[ModelType, None]:
-        async for pk in self.model.all_pks():
+        async for pk in self.all_pks():
             yield await self.get(pk=pk)
 
     async def add(self, models: Sequence[ModelType]) -> Sequence[ModelType]:
