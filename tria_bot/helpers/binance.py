@@ -53,8 +53,8 @@ class Binance:
         if not info:
             raise KeyError(f"Symbol {symbol} not found")
         kind_size = getattr(info, f"{kind}_size", None)
-        if kind_size == None:
-            raise ValueError(f"Not {kind} size for symbol {symbol}")
+        if not kind_size:
+            raise ValueError(f"Not valid {kind} size for symbol {symbol}")
         return float(kind_size)
 
     def get_step_size(self, symbol: str) -> float:

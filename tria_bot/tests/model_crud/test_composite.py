@@ -208,3 +208,13 @@ async def test_no_redis_conn(symbol):
     async with SymbolsCRUD() as sc:
         s = await sc.get(symbol.symbol)
         assert s == symbol
+
+
+def test_symbol_size(symbol):
+    value = 5.13234897
+
+    step_sized = symbol.apply_step_size(value=value)
+    assert step_sized == 5.1323
+
+    tick_sized = symbol.apply_tick_size(value=value)
+    assert tick_sized == 5.13234

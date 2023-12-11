@@ -46,7 +46,7 @@ def py_test_mark_sync(f):
     return f  # no-op decorator
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def event_loop(request):
     loop = None
     policy = asyncio.get_event_loop_policy()
