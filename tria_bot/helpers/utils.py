@@ -1,9 +1,12 @@
 import inspect
 import logging
 from typing import Any, Callable, Iterable, Type, TypeVar
-from pydantic import TypeAdapter, BaseModel
+from pydantic import PydanticSchemaGenerationError, TypeAdapter, BaseModel
 
 KindType = TypeVar("KindType", bound=BaseModel)
+
+class NotSupportedType(Exception):
+    ...
 
 
 def parse_object_as(kind: Type[KindType], data: Any, **kwargs) -> KindType:
@@ -17,7 +20,10 @@ def parse_object_as(kind: Type[KindType], data: Any, **kwargs) -> KindType:
         Any: Pydantic model type instance
     """
 
-    return TypeAdapter(kind).validate_python(data, **kwargs)
+    try:
+        return TypeAdapter(kind).validate_python(data, **kwargs)
+    except PydanticSchemaGenerationError:
+        raise NotSupportedType(f"Type {repr(kind)} is not supported")
 
 
 def create_logger(name: str, level: int = logging.INFO, fmt=None):
