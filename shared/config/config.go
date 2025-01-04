@@ -9,6 +9,11 @@ import (
 
 type Config struct {
 	LogLevel int
+
+	// redis
+	RedisAddress   string
+	RedisPassword  string
+	RedisTickersDb int
 }
 
 var (
@@ -23,6 +28,11 @@ func Load() (*Config, error) {
 	// define default values
 	viper.SetDefault("LOG_LEVEL", "0")
 
+	// redis
+	viper.SetDefault("REDIS_ADDRESS", "localhost:6379")
+	viper.SetDefault("REDIS_PASSWORD", "")
+	viper.SetDefault("REDIS_TICKERS_DB", "0")
+
 	// load from file
 	once.Do(func() {
 		if err := viper.ReadInConfig(); err != nil {
@@ -31,7 +41,10 @@ func Load() (*Config, error) {
 	})
 
 	Settings = &Config{
-		LogLevel: viper.GetInt("LOG_LEVEL"),
+		LogLevel:       viper.GetInt("LOG_LEVEL"),
+		RedisTickersDb: viper.GetInt("REDIS_TICKERS_DB"),
+		RedisAddress:   viper.GetString("REDIS_ADDRESS"),
+		RedisPassword:  viper.GetString("REDIS_PASSWORD"),
 	}
 
 	return Settings, nil

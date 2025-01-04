@@ -1,3 +1,7 @@
+.PHONY: run
+run:
+	go run cmd/main.go
+
 .PHONY: build
 build:
 	sudo podman build -t tria-bot-app:local .

@@ -8,27 +8,23 @@ import (
 
 	"github.com/adshao/go-binance/v2"
 	"github.com/lucaslucyk/tria-bot/shared/logger"
+	dbm "github.com/lucaslucyk/tria-bot/shared/models/db"
+	"github.com/lucaslucyk/tria-bot/shared/redis"
 )
 
+var Repository *redis.Repository[dbm.Ticker]
+
 func Start() {
-	// Crear un cliente WebSocket
-	wsHandler := func(event *binance.WsMarketStatEvent) {
-		logger.Info(
-			"Symbol: %s, PCP: %s",
-			event.Symbol,
-			event.PriceChangePercent,
-		)
-	}
+	Repository = redis.NewRepository[dbm.Ticker]()
 
 	errHandler := func(err error) {
 		logger.Error("Error: %v\n", err)
-		// log.Printf("Error: %v\n", err)
 	}
 
 	// Conectar al stream de tickers para un símbolo específico (por ejemplo, BTCUSDT)
 	doneC, stopC, err := binance.WsCombinedMarketStatServe(
 		[]string{"BTCUSDT"},
-		wsHandler,
+		TickerEventHandler,
 		errHandler,
 	)
 	if err != nil {

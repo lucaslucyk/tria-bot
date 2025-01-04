@@ -1,9 +1,38 @@
 version: "3"
 
 services:
-  ticker: 
-    image: tria-bot-app:local
-    build: .
-    container_name: tickers
-    network_mode: host
-    restart: never
+
+  tria-redis:
+    # image: redis/redis-stack-server
+    image: redis/redis-stack
+    container_name: tria-redis
+    # command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]  # disable persistence
+    ports:
+      - 6379:6379
+      - 8001:8001
+    expose:
+      - 6379
+    environment:
+      - REDIS_ARGS="--save ''"
+    restart: "on-failure"
+    # volumes:
+    #   - redis-data:/data:rw
+    networks:
+      - tria-bot
+
+  # tria-tickers: 
+  #   image: tria-bot-app:local
+  #   build: .
+  #   container_name: tria-tickers
+  #   networks:
+  #     - tria-bot
+  #   depends_on:
+  #     - tria-redis
+  #   env_file:
+  #     - .env
+  #   restart: never
+
+networks:
+  tria-bot:
+    driver: bridge
+    name: tria-bot
