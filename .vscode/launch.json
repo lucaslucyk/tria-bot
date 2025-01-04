@@ -1,18 +1,15 @@
 {
-    // Use IntelliSense para saber los atributos posibles.
-    // Mantenga el puntero para ver las descripciones de los existentes atributos.
-    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: archivo actual",
-            "type": "python",
+            "name": "http",
+            "type": "go",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "envFile": "${workspaceFolder}/.env",
-            "cwd": "${workspaceFolder}",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main.go",
+            // "args": ["-env-filename=${workspaceFolder}/.env"],
+            "envFile": "${workspaceFolder}/.env"
+            // go run ${PWD}/cmd/main.go -env-filename=${ENV_FILE}
         }
     ]
 }
