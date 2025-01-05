@@ -1,6 +1,6 @@
 .PHONY: run
 run:
-	go run cmd/main.go
+	go run cmd/main.go -service=$(SERVICE)
 
 .PHONY: build
 build:

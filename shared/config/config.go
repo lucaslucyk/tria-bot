@@ -2,18 +2,24 @@ package config
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	LogLevel int
+	Debug bool
 
 	// redis
 	RedisAddress   string
 	RedisPassword  string
-	RedisTickersDb int
+	RedisDefaultDb int
+
+	// coins
+	StableCoin  string
+	StrongCoins []string
+	AltCoins    []string
 }
 
 var (
@@ -26,12 +32,16 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 
 	// define default values
-	viper.SetDefault("LOG_LEVEL", "0")
+	viper.SetDefault("DEBUG", "0")
 
 	// redis
 	viper.SetDefault("REDIS_ADDRESS", "localhost:6379")
 	viper.SetDefault("REDIS_PASSWORD", "")
-	viper.SetDefault("REDIS_TICKERS_DB", "0")
+	viper.SetDefault("REDIS_DEFAULT_DB", "0")
+
+	// coins
+	viper.SetDefault("STABLE_COIN", "USDT")
+	viper.SetDefault("STRONG_COINS", "BTC,ETH,BNB")
 
 	// load from file
 	once.Do(func() {
@@ -41,10 +51,17 @@ func Load() (*Config, error) {
 	})
 
 	Settings = &Config{
-		LogLevel:       viper.GetInt("LOG_LEVEL"),
-		RedisTickersDb: viper.GetInt("REDIS_TICKERS_DB"),
+		Debug: viper.GetBool("DEBUG"),
+
+		// redis
+		RedisDefaultDb: viper.GetInt("REDIS_DEFAULT_DB"),
 		RedisAddress:   viper.GetString("REDIS_ADDRESS"),
 		RedisPassword:  viper.GetString("REDIS_PASSWORD"),
+
+		// coins
+		StableCoin:  viper.GetString("STABLE_COIN"),
+		StrongCoins: strings.Split(viper.GetString("STRONG_COINS"), ","),
+		AltCoins:    strings.Split(viper.GetString("ALT_COINS"), ","),
 	}
 
 	return Settings, nil

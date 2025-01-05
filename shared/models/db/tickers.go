@@ -1,5 +1,7 @@
 package db_models
 
+import "github.com/lucaslucyk/tria-bot/shared/config"
+
 type Ticker struct {
 	Symbol             string `json:"s"`
 	PriceChange        string `json:"p"`
@@ -7,13 +9,17 @@ type Ticker struct {
 }
 
 func (t Ticker) DbIndex() int {
-	return 0
+	return config.Settings.RedisDefaultDb
 }
 
 func (t Ticker) Pattern() string {
 	return "tickers:*"
 }
 
+func (t Ticker) KeyPrefix() string {
+	return "tickers:"
+}
+
 func (t Ticker) Key() string {
-	return "tickers:" + t.Symbol
+	return t.KeyPrefix() + t.Symbol
 }

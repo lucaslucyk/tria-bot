@@ -2,12 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "http",
+            "name": "symbols",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main.go",
-            // "args": ["-env-filename=${workspaceFolder}/.env"],
+            "args": ["-service=symbols"],
             "envFile": "${workspaceFolder}/.env"
             // go run ${PWD}/cmd/main.go -env-filename=${ENV_FILE}
         }
