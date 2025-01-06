@@ -26,12 +26,17 @@ go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
 
-old
-.ignore
-
-
 # project files
 Dockerfile
 docker-compose.yml
 Makefile
 .vscode
+
+old
+.ignore
+.env
+.env.prod
+**/.env
+**/.env.prod
+**/*.env
+**/*.env.prod

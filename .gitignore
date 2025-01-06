@@ -28,3 +28,9 @@ go.work
 
 old
 .ignore
+.env
+.env.prod
+**/.env
+**/.env.prod
+**/*.env
+**/*.env.prod
