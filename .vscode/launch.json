@@ -10,6 +10,16 @@
             "args": ["-service=symbols"],
             "envFile": "${workspaceFolder}/.env"
             // go run ${PWD}/cmd/main.go -env-filename=${ENV_FILE}
+        },
+        {
+            "name": "depths",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main.go",
+            "args": ["-service=depths"],
+            "envFile": "${workspaceFolder}/.env"
+            // go run ${PWD}/cmd/main.go -env-filename=${ENV_FILE}
         }
     ]
 }

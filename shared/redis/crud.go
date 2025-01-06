@@ -3,6 +3,7 @@ package redis
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -82,6 +83,25 @@ func (c *Repository[T]) List() (map[string]*T, error) {
 			return nil, fmt.Errorf("error reading key %s: %w", key, err)
 		}
 		result[key] = value
+	}
+
+	return result, nil
+}
+
+func (c *Repository[T]) Ids(trimPrefix bool) ([]string, error) {
+	var t T
+	keys, err := c.db.rdb.Keys(c.db.ctx, t.Pattern()).Result()
+	if err != nil {
+		return []string{}, fmt.Errorf("error listing keys: %w", err)
+	}
+
+	result := make([]string, len(keys))
+	for i, key := range keys {
+		value := key
+		if trimPrefix {
+			value = strings.TrimPrefix(key, t.KeyPrefix())
+		}
+		result[i] = value
 	}
 
 	return result, nil

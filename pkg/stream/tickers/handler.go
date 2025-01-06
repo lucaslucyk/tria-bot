@@ -7,7 +7,7 @@ import (
 )
 
 func TickerEventHandler(event *binance.WsMarketStatEvent) {
-	logger.Info(
+	logger.Debug(
 		"Symbol: %s, PCP: %s",
 		event.Symbol,
 		event.PriceChangePercent,
