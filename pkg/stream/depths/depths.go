@@ -1,7 +1,6 @@
 package depths
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -57,5 +56,5 @@ func Start() {
 	stopC <- struct{}{}
 	<-doneC
 
-	fmt.Println("WebSocket cerrado.")
+	logger.Info("WebSocket stopped!")
 }

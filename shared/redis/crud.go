@@ -68,21 +68,21 @@ func (c *Repository[T]) Delete(key string) error {
 // List returns a map of all the values in the Redis database using the predefined
 // prefix from the type T. The map is keyed by the key used to store the value.
 // If retrieval or deserialization fails, it returns an error detailing the issue.
-func (c *Repository[T]) List() (map[string]*T, error) {
+func (c *Repository[T]) List() ([]*T, error) {
 	var t T
 	keys, err := c.db.rdb.Keys(c.db.ctx, t.Pattern()).Result()
 	if err != nil {
 		return nil, fmt.Errorf("error listing keys: %w", err)
 	}
 
-	result := make(map[string]*T)
-	for _, key := range keys {
+	result := make([]*T, len(keys))
+	for i, key := range keys {
 		// var value T
 		value, err := c.Get(key)
 		if err != nil {
 			return nil, fmt.Errorf("error reading key %s: %w", key, err)
 		}
-		result[key] = value
+		result[i] = value
 	}
 
 	return result, nil

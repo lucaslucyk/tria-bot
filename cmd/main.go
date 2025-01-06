@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/lucaslucyk/tria-bot/cmd/api/symbols"
+	"github.com/lucaslucyk/tria-bot/cmd/calc/gaps"
 	"github.com/lucaslucyk/tria-bot/cmd/common"
 	"github.com/lucaslucyk/tria-bot/cmd/stream/depths"
 	"github.com/lucaslucyk/tria-bot/cmd/stream/tickers"
@@ -26,6 +27,8 @@ func main() {
 		depths.Start()
 	case "symbols":
 		symbols.Start()
+	case "gaps":
+		gaps.Start()
 	default:
 		log.Fatal("service not found")
 	}

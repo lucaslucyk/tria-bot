@@ -1,7 +1,6 @@
 package tickers
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,6 +15,11 @@ var Repository *redis.Repository[dbm.Ticker]
 
 func Start() {
 	Repository = redis.NewRepository[dbm.Ticker]()
+	Symbols, err := GetSymbols()
+	if err != nil {
+		logger.Error("Error getting symbols: %v", err)
+		return
+	}
 
 	errHandler := func(err error) {
 		logger.Error("Error: %v\n", err)
@@ -23,7 +27,7 @@ func Start() {
 
 	// Conectar al stream de tickers para un símbolo específico (por ejemplo, BTCUSDT)
 	doneC, stopC, err := binance.WsCombinedMarketStatServe(
-		[]string{"BTCUSDT"},
+		Symbols,
 		TickerEventHandler,
 		errHandler,
 	)
@@ -41,5 +45,5 @@ func Start() {
 	stopC <- struct{}{}
 	<-doneC
 
-	fmt.Println("WebSocket cerrado.")
+	logger.Info("WebSocket stopped!")
 }

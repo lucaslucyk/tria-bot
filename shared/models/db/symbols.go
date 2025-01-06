@@ -13,6 +13,7 @@ type Filters struct {
 type Symbol struct {
 	Symbol                   string   `json:"symbol"`
 	Status                   string   `json:"status"`
+	BaseAsset                string   `json:"baseAsset"`
 	BaseAssetPrecision       int      `json:"baseAssetPrecision"`
 	QuoteAsset               string   `json:"quoteAsset"`
 	QuotePrecision           int      `json:"quotePrecision"`

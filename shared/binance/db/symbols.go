@@ -37,6 +37,7 @@ func (s *Symbols) ValidSymbols(symbols *[]binance.Symbol) []dbm.Symbol {
 				dbSymbol := dbm.Symbol{
 					Symbol:                   symbol.Symbol,
 					Status:                   symbol.Status,
+					BaseAsset:                symbol.BaseAsset,
 					BaseAssetPrecision:       symbol.BaseAssetPrecision,
 					QuoteAsset:               symbol.QuoteAsset,
 					QuotePrecision:           symbol.QuotePrecision,
